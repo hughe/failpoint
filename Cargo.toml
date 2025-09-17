@@ -1,0 +1,15 @@
+[package]
+name = "failpoint"
+version = "0.1.0"
+edition = "2021"
+authors = ["Hugh Emberson <hugh_emberson@gmail.com>"]
+description = "Simple fault injection"
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "failpoint"
+
+[dependencies]
+
+[dev-dependencies]
+anyhow = "1.0.99"
