@@ -4,14 +4,14 @@
 //! [`failpoint!`] macro.  A failpoint looks something like this:
 //!
 //! ```rust
+//! # use failpoint::failpoint;
 //! # use anyhow;
 //! # fn main() -> Result<(), anyhow::Error> {
-//! #   fn do_something() -> Result<(), Error> {
+//! #   fn do_something() -> Result<(), anyhow::Error> {
 //! #     Ok(())
 //! #   }
-//! #     let res =
 //! failpoint!(do_something(), [ anyhow::Error::msg("Error 1"), anyhow::Error::msg("Error 2") ])?;
-//! #   assert_eq!(res.is_ok());
+//! # Ok(())
 //! # }
 //! ```
 //!
@@ -36,17 +36,18 @@
 //! [`get_count()`] after the codepath has run in "Count" mode.
 //!
 //! ```rust
+//! # use failpoint::{failpoint, start_counter, get_count};
 //! # use anyhow;
 //! # fn main() -> Result<(), anyhow::Error> {
-//! # fn do_something() -> Result<(), Error> {
+//! # fn do_something() -> Result<(), anyhow::Error> {
 //! #   Ok(())
 //! # }
 //! start_counter();
 //!
-//! let res = failpoint!(do_something(), [ anyhow::Error::msg("Error 1"), anyhow::Error::msg("Error 2") ])?;
+//! failpoint!(do_something(), [ anyhow::Error::msg("Error 1"), anyhow::Error::msg("Error 2") ])?;
 //!
-//! assert!(res.is_ok());
 //! assert_eq!(2, get_count());
+//! # Ok(())
 //! # }
 //! ```
 //!
@@ -61,14 +62,15 @@
 //! cause a failpoint to return the nth error on the codepath.
 //!
 //! ```rust
+//! # use failpoint::{failpoint, start_trigger};
 //! # use anyhow;
-//! # fn main() -> Result<(), anyhow::Error> {
-//! # fn do_something() -> Result<(), Error> {
+//! # fn main() {
+//! # fn do_something() -> Result<(), anyhow::Error> {
 //! #   Ok(())
 //! # }
 //! start_trigger(1);
 //!
-//! let res = failpoint!(do_something(), [ Error::msg("Error") ]);
+//! let res = failpoint!(do_something(), [ anyhow::Error::msg("Error") ]);
 //!
 //! assert!(res.is_err());
 //! # }
