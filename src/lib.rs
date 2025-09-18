@@ -1,3 +1,79 @@
+//! Failpoint is a error injection system.
+//!
+//! A failpoint is a place, where we can inject errors using the
+//! [`failpoint!`] macro.  A failpoint looks something like this:
+//!
+//! ```rust
+//! # use anyhow;
+//! # fn main() -> Result<(), anyhow::Error> {
+//! #   fn do_something() -> Result<(), Error> {
+//! #     Ok(())
+//! #   }
+//! #     let res =
+//! failpoint!(do_something(), [ anyhow::Error::msg("Error 1"), anyhow::Error::msg("Error 2") ])?;
+//! #   assert_eq!(res.is_ok());
+//! # }
+//! ```
+//!
+//! The macro wraps an expression (parameter `$exp`), which is usually
+//! a function call.  In this case the expression is `do_something()`.
+//! The expression must evaluate to a `Result<T, E>`. The macro also
+//! takes one to three parameters (`$err1`, `$err2`, ...)  in square
+//! brackets which are expressions that evaluate to error values whose
+//! type must be `E`.  In this case there are two expressions, both of
+//! which constructs an `anyhow::Error`.
+//!
+//! The failpoint crate has two modes, "Count" mode and "Trigger"
+//! mode.
+//!
+//! "Count" mode is used to count the number of failpoints in a code
+//! path. When the crate is is "Count" mode and a fail point is
+//! encountered then the expression (`$exp`) will be evaluated and
+//! returned by the macro and the count of failpoint errors in the
+//! code path will be incremented.  "Count" mode is entered by calling
+//! [`start_counter()`] before the code path is entered.  You can find out
+//! how many failpoint errors there are on the code path by calling
+//! [`get_count()`] after the codepath has run in "Count" mode.
+//!
+//! ```rust
+//! # use anyhow;
+//! # fn main() -> Result<(), anyhow::Error> {
+//! # fn do_something() -> Result<(), Error> {
+//! #   Ok(())
+//! # }
+//! start_counter();
+//!
+//! let res = failpoint!(do_something(), [ anyhow::Error::msg("Error 1"), anyhow::Error::msg("Error 2") ])?;
+//!
+//! assert!(res.is_ok());
+//! assert_eq!(2, get_count());
+//! # }
+//! ```
+//!
+//! In "Trigger" mode the failpoint containing the nth error on the code path will be
+//! triggered.  When the failpoint is triggered, it will firstly
+//! evaluate the expression `$exp` and then it will return the value
+//! of one of the error expressions.  The error values are returned in
+//! the order listed, the first time the failpoint is triggered
+//! `$err1` is returned, the second time `$err2`, ...
+//!
+//! "Trigger" mode is entered by calling `start_trigger(n)` which will
+//! cause a failpoint to return the nth error on the codepath.
+//!
+//! ```rust
+//! # use anyhow;
+//! # fn main() -> Result<(), anyhow::Error> {
+//! # fn do_something() -> Result<(), Error> {
+//! #   Ok(())
+//! # }
+//! start_trigger(1);
+//!
+//! let res = failpoint!(do_something(), [ Error::msg("Error") ]);
+//!
+//! assert!(res.is_err());
+//! # }
+//! ```
+
 use std::sync::{LazyLock, Mutex};
 
 
@@ -89,7 +165,6 @@ pub fn get_state() -> &'static State {
     &*STATE
 }
 
-
 pub fn start_counter() {
     let state = &*STATE;
     let mut g = state.mu.lock().unwrap();
@@ -118,8 +193,6 @@ pub fn get_triggered_at() -> Option<Location> {
 }
 
 static STATE: LazyLock<State> = LazyLock::new(|| State::default());
-
-pub const NO_DESC: &'static str = "";
 
 #[macro_export]
 macro_rules! failpoint {
