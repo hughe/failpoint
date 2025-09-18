@@ -89,12 +89,19 @@ pub struct Location {
 
 pub type Reporter = fn(point: &Location);
 
+// HIDDEN DOC:
+//
+// Has to be public so that it can be accessed by the macro code
+// from other crates, but it is not part of the public interface so we
+// hide it from rust doc.
 #[derive(Debug, PartialEq)]
+#[doc(hidden)]
 pub enum Mode {
     Count,
     Trigger,
 }
 
+#[doc(hidden)]
 pub struct Inner {
     pub mode: Mode,
 
@@ -147,6 +154,8 @@ impl Inner {
 
 }
 
+// See HIDDEN DOC above.
+#[doc(hidden)]
 pub struct State {
 
     pub mu: Mutex<Inner>,
@@ -161,6 +170,8 @@ impl Default for State {
     }
 }
 
+// See HIDDEN DOC above.
+#[doc(hidden)]
 pub fn get_state() -> &'static State {
     &*STATE
 }
