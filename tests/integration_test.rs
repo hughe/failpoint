@@ -4,32 +4,33 @@ use failpoint::{failpoint, get_count, start_counter, start_trigger, test_codepat
 
 #[test]
 fn test_counter_mode() {
-
     fn do_something() -> Result<(), Error> {
-	Ok(())
+        Ok(())
     }
 
     start_counter();
 
     assert_eq!(0, get_count());
 
-    let res = failpoint!(do_something(), [ Error::msg("Error") ]);
+    let res = failpoint!(do_something(), [Error::msg("Error")]);
 
     assert!(res.is_ok());
 
     assert_eq!(1, get_count());
 }
 
-
 #[test]
 fn test_counter_mode_two() {
     fn do_something() -> Result<(), Error> {
-	Ok(())
+        Ok(())
     }
 
     start_counter();
 
-    let res = failpoint!(do_something(), [ Error::msg("Error 1"), Error::msg("Error 2") ]);
+    let res = failpoint!(
+        do_something(),
+        [Error::msg("Error 1"), Error::msg("Error 2")]
+    );
 
     assert!(res.is_ok());
     assert_eq!(2, get_count());
@@ -38,12 +39,12 @@ fn test_counter_mode_two() {
 #[test]
 fn test_trigger_mode() {
     fn do_something() -> Result<(), Error> {
-	Ok(())
+        Ok(())
     }
 
     start_trigger(1);
 
-    let res = failpoint!(do_something(), [ Error::msg("Error") ]);
+    let res = failpoint!(do_something(), [Error::msg("Error")]);
 
     assert!(res.is_err());
 }
@@ -51,11 +52,14 @@ fn test_trigger_mode() {
 #[test]
 fn test_trigger_mode_two() {
     fn do_something() -> Result<(), Error> {
-	Ok(())
+        Ok(())
     }
 
     fn do_failpoint() -> Result<(), Error> {
-	failpoint!(do_something(), [ Error::msg("Error 1"), Error::msg("Error 2") ])
+        failpoint!(
+            do_something(),
+            [Error::msg("Error 1"), Error::msg("Error 2")]
+        )
     }
 
     start_trigger(3);
@@ -77,17 +81,17 @@ fn test_trigger_mode_two() {
 #[test]
 fn test_test_codepath() {
     fn do_something() -> Result<(), Error> {
-	Ok(())
+        Ok(())
     }
 
     fn do_failpoint() -> Result<(), Error> {
-	failpoint!(do_something(), [ Error::msg("Error 1") ])
+        failpoint!(do_something(), [Error::msg("Error 1")])
     }
 
     let res = test_codepath! {
-	{
-	    do_failpoint()
-	}
+    {
+        do_failpoint()
+    }
     };
 
     assert!(res.is_none());

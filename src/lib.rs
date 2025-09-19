@@ -102,59 +102,55 @@ pub struct Inner {
     verbosity: i32,
 
     pub trigger: i64,
-
 }
 
 impl Default for Inner {
     fn default() -> Self {
         Self {
-	    mode: Mode::Count,
+            mode: Mode::Count,
             counter: 0,
 
             logger: None, // Do we need this?
-	    verbosity: 1,
+            verbosity: 1,
 
-	    trigger: i64::MAX,
+            trigger: i64::MAX,
         }
     }
 }
 
 impl Inner {
-
-    pub fn report_trigger(&mut self,
-			  crate_name: Option<&'static str>,
-			  file_name: &'static str,
-			  line_no: u32,
-			  desc: &'static str,
-			  err_no: usize,
+    pub fn report_trigger(
+        &mut self,
+        crate_name: Option<&'static str>,
+        file_name: &'static str,
+        line_no: u32,
+        desc: &'static str,
+        err_no: usize,
     ) {
-	let desc = if desc != "" { Some(desc) } else { None };
+        let desc = if desc != "" { Some(desc) } else { None };
 
-	if self.verbosity >= 1 {
-	    if let Some(log) = self.logger {
-		let loc = if let Some(c) = crate_name {
-		    format!("{file_name}:{line_no} error {err_no} in {c}")
-		} else {
-		    format!("{file_name}:{line_no} error {err_no}")
-		};
-		let msg = if let Some(d) = desc {
-		    format!("Triggered failpoint \"{d}\" at {loc}")
-		} else {
-		    format!("Triggered failpoint at {loc}")
-		};
-		log(msg);
-	    }
-	}
+        if self.verbosity >= 1 {
+            if let Some(log) = self.logger {
+                let loc = if let Some(c) = crate_name {
+                    format!("{file_name}:{line_no} error {err_no} in {c}")
+                } else {
+                    format!("{file_name}:{line_no} error {err_no}")
+                };
+                let msg = if let Some(d) = desc {
+                    format!("Triggered failpoint \"{d}\" at {loc}")
+                } else {
+                    format!("Triggered failpoint at {loc}")
+                };
+                log(msg);
+            }
+        }
     }
-
 }
 
 // See HIDDEN DOC above.
 #[doc(hidden)]
 pub struct State {
-
     pub mu: Mutex<Inner>,
-
 }
 
 impl Default for State {
@@ -176,7 +172,6 @@ pub fn lock_state<'a>() -> MutexGuard<'a, Inner> {
     let g = state.mu.lock().unwrap();
     g
 }
-
 
 pub fn start_counter() {
     let mut g = lock_state();
@@ -223,136 +218,122 @@ static STATE: LazyLock<State> = LazyLock::new(|| State::default());
 
 #[macro_export]
 macro_rules! failpoint {
+    ($exp: expr, [ $err1: expr, $err2: expr, $err3: expr ]) => {{
+        failpoint!($exp, "", [$err1, $err2, $err3])
+    }};
 
-    ($exp: expr, [ $err1: expr, $err2: expr, $err3: expr ]) => {
-	{
-	    failpoint!($exp, "", [ $err1, $err2, $err3 ])
-	}
-    };
+    ($exp: expr, $desc: expr, [ $err1: expr, $err2: expr, $err3: expr ]) => {{
+        // Evaluate exp OUTSIDE of the mutex to prevent possible
+        // deadlocks.
+        let res = $exp;
 
-    ($exp: expr, $desc: expr, [ $err1: expr, $err2: expr, $err3: expr ]) => {
-	{
-	    // Evaluate exp OUTSIDE of the mutex to prevent possible
-	    // deadlocks.
-	    let res = $exp;
+        {
+            use failpoint::{lock_state, Mode};
+            let mut g = lock_state();
+            const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
 
-	    {
-		use failpoint::{lock_state, Mode};
-		let mut g = lock_state();
-		const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
+            if g.mode == Mode::Count {
+                g.counter = g.counter + 2;
+                res
+            } else {
+                if g.trigger == 3 {
+                    g.trigger = g.trigger - 1;
 
-		if g.mode == Mode::Count {
-		    g.counter = g.counter + 2;
-		    res
-		} else {
-		    if g.trigger == 3 {
-			g.trigger = g.trigger - 1;
+                    g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 1);
 
-			g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 1);
+                    Err($err1)
+                } else {
+                    if g.trigger == 2 {
+                        g.trigger = g.trigger - 1;
 
-			Err($err1)
-		    } else {
-			if g.trigger == 2 {
-			    g.trigger = g.trigger - 1;
+                        g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 2);
 
-			    g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 2);
+                        Err($err2)
+                    } else {
+                        if g.trigger == 1 {
+                            g.trigger = g.trigger - 1;
+                            g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 3);
 
-			    Err($err2)
-			} else {
-			    if g.trigger == 1 {
-				g.trigger = g.trigger - 1;
-				g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 3);
+                            Err($err3)
+                        } else {
+                            g.trigger = g.trigger - 1;
 
-				Err($err3)
-			    } else {
-				g.trigger = g.trigger - 1;
+                            res
+                        }
+                    }
+                }
+            }
+        }
+    }};
 
-				res
-			    }
-			}
-		    }
-		}
-	    }
-	}
-    };
+    ($exp: expr, [ $err1: expr, $err2: expr ]) => {{
+        failpoint!($exp, "", [$err1, $err2])
+    }};
 
+    ($exp: expr, $desc: expr, [ $err1: expr, $err2: expr ]) => {{
+        // Evaluate exp OUTSIDE of the mutex to prevent possible
+        // deadlocks.
+        let res = $exp;
 
-    ($exp: expr, [ $err1: expr, $err2: expr ]) => {
-	{
-	    failpoint!($exp, "", [ $err1, $err2 ])
-	}
-    };
+        {
+            use failpoint::{lock_state, Mode};
+            let mut g = lock_state();
+            const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
 
-    ($exp: expr, $desc: expr, [ $err1: expr, $err2: expr ]) => {
-	{
-	    // Evaluate exp OUTSIDE of the mutex to prevent possible
-	    // deadlocks.
-	    let res = $exp;
+            if g.mode == Mode::Count {
+                g.counter = g.counter + 2;
+                res
+            } else {
+                if g.trigger == 2 {
+                    g.trigger = g.trigger - 1;
 
-	    {
-		use failpoint::{lock_state, Mode};
-		let mut g = lock_state();
-		const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
+                    g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 1);
 
-		if g.mode == Mode::Count {
-		    g.counter = g.counter + 2;
-		    res
-		} else {
-		    if g.trigger == 2 {
-			g.trigger = g.trigger - 1;
+                    Err($err1)
+                } else {
+                    if g.trigger == 1 {
+                        g.trigger = g.trigger - 1;
+                        g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 2);
 
-			g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 1);
+                        Err($err2)
+                    } else {
+                        g.trigger = g.trigger - 1;
 
-			Err($err1)
-		    } else {
-			if g.trigger == 1 {
-			    g.trigger = g.trigger - 1;
-			    g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 2);
+                        res
+                    }
+                }
+            }
+        }
+    }};
 
-			    Err($err2)
-			} else {
-			    g.trigger = g.trigger - 1;
+    ($exp: expr, [ $err: expr ]) => {{
+        failpoint!($exp, "", [$err])
+    }};
 
-			    res
-			}
-		    }
-		}
-	    }
-	}
-    };
+    ($exp: expr, $desc: expr, [ $err: expr ]) => {{
+        // Evaluate exp OUTSIDE of the mutex to prevent possible
+        // deadlocks.
+        let res = $exp;
 
-    ($exp: expr, [ $err: expr ]) => {
-	{
-	    failpoint!($exp, "", [ $err ])
-	}
-    };
+        {
+            use failpoint::{lock_state, Mode};
+            const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
+            let mut g = lock_state();
 
-    ($exp: expr, $desc: expr, [ $err: expr ]) => {
-	{
-	    // Evaluate exp OUTSIDE of the mutex to prevent possible
-	    // deadlocks.
-	    let res = $exp;
-
-	    {
-		use failpoint::{lock_state, Mode};
-		const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
-		let mut g = lock_state();
-
-		if g.mode == Mode::Count {
-		    g.counter = g.counter + 1;
-		    res
-		} else {
-		    g.trigger = g.trigger - 1;
-		    if g.trigger == 0 {
-			g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 2);
-			Err($err)
-		    } else {
-			res
-		    }
-		}
-	    }
-	}
-    };
+            if g.mode == Mode::Count {
+                g.counter = g.counter + 1;
+                res
+            } else {
+                g.trigger = g.trigger - 1;
+                if g.trigger == 0 {
+                    g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 2);
+                    Err($err)
+                } else {
+                    res
+                }
+            }
+        }
+    }};
 }
 
 #[macro_export]

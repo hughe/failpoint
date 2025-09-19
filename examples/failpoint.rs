@@ -11,7 +11,6 @@ fn do_something_important() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-
 // This is how we use the failpoint macro to wrap a function.
 fn do_something_else() -> Result<(), anyhow::Error> {
     // Some code ...
@@ -20,7 +19,7 @@ fn do_something_else() -> Result<(), anyhow::Error> {
     // return an error with the message "Error 1". If the failpoint is
     // not triggered we will return whatever
     // `do_something_important()` returns.
-    let res = failpoint!(do_something_important(), [ anyhow::Error::msg("Error 1")])?;
+    let res = failpoint!(do_something_important(), [anyhow::Error::msg("Error 1")])?;
 
     // Some more code, do something with the result.
 
