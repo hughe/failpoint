@@ -78,17 +78,6 @@
 
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
-
-#[derive(Copy, Clone, Debug, Default)]
-pub struct Location {
-    crate_name: Option<&'static str>,
-    file_name: &'static str,
-    line_no: u32,
-
-    desc: Option<&'static str>,
-    err_no: usize,
-}
-
 pub type Logger = fn(msg: String);
 
 // HIDDEN DOC:
@@ -113,9 +102,6 @@ pub struct Inner {
     verbosity: i32,
 
     pub trigger: i64,
-    triggered_at: Option<Location>,
-
-
 
 }
 
@@ -129,7 +115,6 @@ impl Default for Inner {
 	    verbosity: 1,
 
 	    trigger: i64::MAX,
-	    triggered_at: None,
         }
     }
 }
@@ -144,15 +129,6 @@ impl Inner {
 			  err_no: usize,
     ) {
 	let desc = if desc != "" { Some(desc) } else { None };
-	let point = Location {
-	    crate_name,
-	    file_name,
-	    line_no,
-	    desc,
-	    err_no,
-	};
-
-	self.triggered_at = Some(point);
 
 	if self.verbosity >= 1 {
 	    if let Some(log) = self.logger {
@@ -212,17 +188,11 @@ pub fn start_trigger(trigger_after: i64) {
     let mut g = lock_state();
     g.mode = Mode::Trigger;
     g.trigger = trigger_after;
-    g.triggered_at = None;
 }
 
 pub fn get_count() -> i64 {
     let g = lock_state();
     g.counter
-}
-
-pub fn get_triggered_at() -> Option<Location> {
-    let g = lock_state();
-    g.triggered_at
 }
 
 // See HIDDEN DOC above.
@@ -457,6 +427,9 @@ macro_rules! test_codepath {
 		}
 		$after;
 	    };
+
+
+
 	    ret
 	}
     };
