@@ -76,7 +76,7 @@
 //! # }
 //! ```
 
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -85,11 +85,11 @@ pub struct Location {
     file_name: &'static str,
     line_no: u32,
 
-    desc: &'static str,
+    desc: Option<&'static str>,
     err_no: usize,
 }
 
-pub type Reporter = fn(point: &Location);
+pub type Logger = fn(msg: String);
 
 // HIDDEN DOC:
 //
@@ -109,10 +109,13 @@ pub struct Inner {
 
     pub counter: i64,
 
-    pub reporter: Option<Reporter>,
+    logger: Option<Logger>,
+    verbosity: i32,
 
     pub trigger: i64,
     triggered_at: Option<Location>,
+
+
 
 }
 
@@ -122,7 +125,8 @@ impl Default for Inner {
 	    mode: Mode::Count,
             counter: 0,
 
-            reporter: None, // Do we need this?
+            logger: None, // Do we need this?
+	    verbosity: 1,
 
 	    trigger: i64::MAX,
 	    triggered_at: None,
@@ -132,13 +136,14 @@ impl Default for Inner {
 
 impl Inner {
 
-    pub fn _report(&mut self,
-		   crate_name: Option<&'static str>,
-		   file_name: &'static str,
-		   line_no: u32,
-		   desc: &'static str,
-		   err_no: usize,
+    pub fn report_trigger(&mut self,
+			  crate_name: Option<&'static str>,
+			  file_name: &'static str,
+			  line_no: u32,
+			  desc: &'static str,
+			  err_no: usize,
     ) {
+	let desc = if desc != "" { Some(desc) } else { None };
 	let point = Location {
 	    crate_name,
 	    file_name,
@@ -149,8 +154,20 @@ impl Inner {
 
 	self.triggered_at = Some(point);
 
-	if let Some(r) = self.reporter {
-	    r(&point);
+	if self.verbosity >= 1 {
+	    if let Some(log) = self.logger {
+		let loc = if let Some(c) = crate_name {
+		    format!("{file_name}:{line_no} error {err_no} in {c}")
+		} else {
+		    format!("{file_name}:{line_no} error {err_no}")
+		};
+		let msg = if let Some(d) = desc {
+		    format!("Triggered failpoint \"{d}\" at {loc}")
+		} else {
+		    format!("Triggered failpoint at {loc}")
+		};
+		log(msg);
+	    }
 	}
     }
 
@@ -178,31 +195,58 @@ pub fn get_state() -> &'static State {
     &*STATE
 }
 
+pub fn lock_state<'a>() -> MutexGuard<'a, Inner> {
+    let state = get_state();
+    let g = state.mu.lock().unwrap();
+    g
+}
+
+
 pub fn start_counter() {
-    let state = &*STATE;
-    let mut g = state.mu.lock().unwrap();
+    let mut g = lock_state();
     g.mode = Mode::Count;
     g.counter = 0;
 }
 
 pub fn start_trigger(trigger_after: i64) {
-    let state = &*STATE;
-    let mut g = state.mu.lock().unwrap();
+    let mut g = lock_state();
     g.mode = Mode::Trigger;
     g.trigger = trigger_after;
     g.triggered_at = None;
 }
 
 pub fn get_count() -> i64 {
-    let state = &*STATE;
-    let g = state.mu.lock().unwrap();
+    let g = lock_state();
     g.counter
 }
 
 pub fn get_triggered_at() -> Option<Location> {
-    let state = &*STATE;
-    let g = state.mu.lock().unwrap();
+    let g = lock_state();
     g.triggered_at
+}
+
+// See HIDDEN DOC above.
+#[doc(hidden)]
+pub fn get_verbosity() -> i32 {
+    let g = lock_state();
+    g.verbosity
+}
+
+pub fn set_verbosity(v: i32) {
+    let mut g = lock_state();
+    g.verbosity = v;
+}
+
+// See HIDDEN DOC above.
+#[doc(hidden)]
+pub fn get_logger() -> Option<Logger> {
+    let g = lock_state();
+    g.logger
+}
+
+pub fn set_logger(l: Option<Logger>) {
+    let mut g = lock_state();
+    g.logger = l;
 }
 
 static STATE: LazyLock<State> = LazyLock::new(|| State::default());
@@ -223,9 +267,8 @@ macro_rules! failpoint {
 	    let res = $exp;
 
 	    {
-		use failpoint::{get_state, Mode};
-		let state = get_state();
-		let mut g = state.mu.lock().unwrap();
+		use failpoint::{lock_state, Mode};
+		let mut g = lock_state();
 		const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
 
 		if g.mode == Mode::Count {
@@ -235,20 +278,20 @@ macro_rules! failpoint {
 		    if g.trigger == 3 {
 			g.trigger = g.trigger - 1;
 
-			g._report(CRATE_NAME, file!(), line!(), $desc, 1);
+			g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 1);
 
 			Err($err1)
 		    } else {
 			if g.trigger == 2 {
 			    g.trigger = g.trigger - 1;
 
-			    g._report(CRATE_NAME, file!(), line!(), $desc, 2);
+			    g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 2);
 
 			    Err($err2)
 			} else {
 			    if g.trigger == 1 {
 				g.trigger = g.trigger - 1;
-				g._report(CRATE_NAME, file!(), line!(), $desc, 3);
+				g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 3);
 
 				Err($err3)
 			    } else {
@@ -277,9 +320,8 @@ macro_rules! failpoint {
 	    let res = $exp;
 
 	    {
-		use failpoint::{get_state, Mode};
-		let state = get_state();
-		let mut g = state.mu.lock().unwrap();
+		use failpoint::{lock_state, Mode};
+		let mut g = lock_state();
 		const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
 
 		if g.mode == Mode::Count {
@@ -289,13 +331,13 @@ macro_rules! failpoint {
 		    if g.trigger == 2 {
 			g.trigger = g.trigger - 1;
 
-			g._report(CRATE_NAME, file!(), line!(), $desc, 1);
+			g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 1);
 
 			Err($err1)
 		    } else {
 			if g.trigger == 1 {
 			    g.trigger = g.trigger - 1;
-			    g._report(CRATE_NAME, file!(), line!(), $desc, 2);
+			    g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 2);
 
 			    Err($err2)
 			} else {
@@ -322,10 +364,9 @@ macro_rules! failpoint {
 	    let res = $exp;
 
 	    {
-		use failpoint::{get_state, Mode};
+		use failpoint::{lock_state, Mode};
 		const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
-		let state = get_state();
-		let mut g = state.mu.lock().unwrap();
+		let mut g = lock_state();
 
 		if g.mode == Mode::Count {
 		    g.counter = g.counter + 1;
@@ -333,7 +374,7 @@ macro_rules! failpoint {
 		} else {
 		    g.trigger = g.trigger - 1;
 		    if g.trigger == 0 {
-			g._report(CRATE_NAME, file!(), line!(), $desc, 2);
+			g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 2);
 			Err($err)
 		    } else {
 			res
@@ -341,5 +382,90 @@ macro_rules! failpoint {
 		}
 	    }
 	}
+    };
+}
+
+#[macro_export]
+macro_rules! test_codepath {
+    { $before: block ; $codepath: expr; $after: block } => {
+	{
+	    use failpoint::{start_counter, start_trigger, Mode, get_count, get_logger, get_verbosity};
+	    let mut mode = Mode::Count;
+	    let mut trigger_count = 0;
+	    let mut error_count = i64::MAX;
+
+	    let ret = loop {
+		if mode != Mode::Count && trigger_count > error_count  {
+		    break None;
+		}
+
+		if get_verbosity() >= 2 {
+		    if let Some(log) = get_logger() {
+			log("Running before block".to_string());
+		    }
+		}
+		$before;
+
+
+		if mode == Mode::Count {
+		    start_counter();
+		    if get_verbosity() >= 2 {
+			if let Some(log) = get_logger() {
+			    log("Running codepath in COUNT mode".to_string());
+			}
+		    }
+		} else {
+		    start_trigger(trigger_count);
+		    if get_verbosity() >= 2 {
+			if let Some(log) = get_logger() {
+			    log(format!("Running codepath in TRIGGER mode, will trigger error {}", trigger_count));
+			}
+		    }
+		}
+
+		let res = $codepath;
+
+		if mode == Mode::Count {
+		    if res.is_err() {
+			if let Some(log) = get_logger() {
+			    log("Error returned by codepath in count mode. Expected codepath to succeed.".to_string());
+			}
+			break Some(res)
+		    }
+		} else {
+		    if !res.is_err() {
+			if let Some(log) = get_logger() {
+			    log(format!("Codepath did not fail in trigger mode for error {}.  Expected codepath to fail.",
+					trigger_count));
+			}
+			break Some(res)
+		    }
+		}
+
+		if mode == Mode::Count {
+		    mode = Mode::Trigger;
+		    trigger_count = 1;
+		    error_count = get_count();
+		} else {
+		    trigger_count += 1;
+		}
+
+		if get_verbosity() >= 2 {
+		    if let Some(log) = get_logger() {
+			log("Running after block".to_string());
+		    }
+		}
+		$after;
+	    };
+	    ret
+	}
+    };
+
+    { $codepath: expr; $after: block } => {
+	test_codepath!{ {}; $codepath; $after }
+    };
+
+    { $codepath: expr } => {
+	test_codepath!{ {}; $codepath; {} }
     };
 }

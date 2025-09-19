@@ -1,6 +1,6 @@
 use anyhow::Error;
 
-use failpoint::{failpoint, get_count, start_counter, start_trigger};
+use failpoint::{failpoint, get_count, start_counter, start_trigger, test_codepath};
 
 #[test]
 fn test_counter_mode() {
@@ -72,4 +72,23 @@ fn test_trigger_mode_two() {
     assert!(res2.is_err());
 
     assert_eq!(format!("{}", res2.err().unwrap()), "Error 2");
+}
+
+#[test]
+fn test_test_codepath() {
+    fn do_something() -> Result<(), Error> {
+	Ok(())
+    }
+
+    fn do_failpoint() -> Result<(), Error> {
+	failpoint!(do_something(), [ Error::msg("Error 1") ])
+    }
+
+    let res = test_codepath! {
+	{
+	    do_failpoint()
+	}
+    };
+
+    assert!(res.is_none());
 }
