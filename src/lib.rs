@@ -336,17 +336,29 @@ macro_rules! failpoint {
     }};
 }
 
+pub struct CodePathResult<T, E> {
+    pub expected_trigger_count: i64,
+    pub trigger_count: i64,
+    pub unexpected_result: Option<Result<T, E>>,
+}
+
+impl<T, E> CodePathResult<T, E> {
+    pub fn success(&self) -> bool {
+        self.trigger_count == self.expected_trigger_count
+    }
+}
+
 #[macro_export]
 macro_rules! test_codepath {
     { $before: block ; $codepath: expr; $after: block } => {
 	{
-	    use failpoint::{start_counter, start_trigger, Mode, get_count, get_logger, get_verbosity};
+	    use failpoint::{start_counter, start_trigger, Mode, get_count, get_logger, get_verbosity, CodePathResult};
 	    let mut mode = Mode::Count;
 	    let mut trigger_count = 0;
 	    let mut error_count = i64::MAX;
 
-	    let ret = loop {
-		if mode != Mode::Count && trigger_count > error_count  {
+	    let unexpected_result = loop {
+		if mode == Mode::Trigger && trigger_count > error_count  {
 		    break None;
 		}
 
@@ -409,7 +421,17 @@ macro_rules! test_codepath {
 		$after;
 	    };
 
+	    if get_verbosity() >= 1 {
+		if let Some(log) = get_logger() {
+		    log(format!("Triggered {trigger_count} of {error_count} errors"));
+		}
+	    }
 
+	    let ret = CodePathResult{
+		expected_trigger_count: error_count,
+		trigger_count: trigger_count - 1,
+		unexpected_result,
+	    };
 
 	    ret
 	}

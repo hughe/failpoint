@@ -90,9 +90,9 @@ fn test_test_codepath() {
 
     let res = test_codepath! {
     {
-        do_failpoint()
+            do_failpoint()
     }
     };
 
-    assert!(res.is_none());
+    assert!(res.success());
 }
