@@ -189,28 +189,22 @@ pub fn get_count() -> i64 {
     g.counter
 }
 
-// See HIDDEN DOC above.
-#[doc(hidden)]
-pub fn get_verbosity() -> i32 {
-    let g = lock_state();
-    g.verbosity
-}
-
 pub fn set_verbosity(v: i32) {
     let mut g = lock_state();
     g.verbosity = v;
 }
 
-// See HIDDEN DOC above.
-#[doc(hidden)]
-pub fn get_logger() -> Option<Logger> {
-    let g = lock_state();
-    g.logger
-}
 
 pub fn set_logger(l: Option<Logger>) {
     let mut g = lock_state();
     g.logger = l;
+}
+
+// See HIDDEN DOC above.
+#[doc(hidden)]
+pub fn get_logger_and_verbosity() -> (Option<Logger>, i32) {
+    let g = lock_state();
+    (g.logger, g.verbosity)
 }
 
 static STATE: LazyLock<State> = LazyLock::new(|| State::default());
@@ -367,9 +361,10 @@ macro_rules! test_codepath {
 
     (@log $level:expr, $msg:expr) => {
 	{
-	    use failpoint::{get_verbosity, get_logger};
-	    if get_verbosity() >= $level {
-	    	if let Some(log_fn) = get_logger() {
+	    use failpoint::get_logger_and_verbosity;
+	    let (log_fn_opt, verbosity) = get_logger_and_verbosity();
+	    if verbosity >= $level {
+	    	if let Some(log_fn) = log_fn_opt {
 	            log_fn($msg.to_string());
 	     	}
 	    }
