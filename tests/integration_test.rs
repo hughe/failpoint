@@ -95,4 +95,8 @@ fn test_test_codepath() {
     };
 
     assert!(res.success());
+
+    assert_eq!(1, res.trigger_count);
+    assert_eq!(1, res.expected_trigger_count);
+    assert!(res.unexpected_result.is_none());
 }

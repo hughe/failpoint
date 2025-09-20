@@ -252,7 +252,8 @@ macro_rules! failpoint {
                     } else {
                         if g.trigger == 1 {
                             g.trigger = g.trigger - 1;
-                            g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 3);
+
+			    g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 3);
 
                             Err($err3)
                         } else {
@@ -293,7 +294,8 @@ macro_rules! failpoint {
                 } else {
                     if g.trigger == 1 {
                         g.trigger = g.trigger - 1;
-                        g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 2);
+
+			g.report_trigger(CRATE_NAME, file!(), line!(), $desc, 2);
 
                         Err($err2)
                     } else {
@@ -348,11 +350,25 @@ impl<T, E> CodePathResult<T, E> {
     }
 }
 
+
+
 #[macro_export]
 macro_rules! test_codepath {
-    { $before: block ; $codepath: expr; $after: block } => {
+
+    (@log $level:expr, $msg:expr) => {
 	{
-	    use failpoint::{start_counter, start_trigger, Mode, get_count, get_logger, get_verbosity, CodePathResult};
+	    use failpoint::{get_verbosity, get_logger};
+	    if get_verbosity() >= $level {
+	    	if let Some(log_fn) = get_logger() {
+	            log_fn($msg.to_string());
+	     	}
+	    }
+	}
+    };
+
+    { $before: block ; $codepath: expr ; $after: block } => {
+	{
+	    use failpoint::{start_counter, start_trigger, Mode, get_count, CodePathResult};
 	    let mut mode = Mode::Count;
 	    let mut trigger_count = 0;
 	    let mut error_count = i64::MAX;
@@ -362,45 +378,32 @@ macro_rules! test_codepath {
 		    break None;
 		}
 
-		if get_verbosity() >= 2 {
-		    if let Some(log) = get_logger() {
-			log("Running before block".to_string());
-		    }
-		}
+		test_codepath!(@log 2, "Running before block".to_string());
+
 		$before;
 
 
 		if mode == Mode::Count {
 		    start_counter();
-		    if get_verbosity() >= 2 {
-			if let Some(log) = get_logger() {
-			    log("Running codepath in COUNT mode".to_string());
-			}
-		    }
+		    test_codepath!(@log 2, "Running codepath in COUNT mode".to_string());
 		} else {
 		    start_trigger(trigger_count);
-		    if get_verbosity() >= 2 {
-			if let Some(log) = get_logger() {
-			    log(format!("Running codepath in TRIGGER mode, will trigger error {}", trigger_count));
-			}
-		    }
+		    test_codepath!(@log 2, format!("Running codepath in TRIGGER mode, will trigger error {}", trigger_count));
 		}
 
 		let res = $codepath;
 
 		if mode == Mode::Count {
 		    if res.is_err() {
-			if let Some(log) = get_logger() {
-			    log("Error returned by codepath in count mode. Expected codepath to succeed.".to_string());
-			}
+			test_codepath!(@log 0,
+				       "Error returned by codepath in count mode. Expected codepath to succeed.".to_string());
 			break Some(res)
 		    }
 		} else {
 		    if !res.is_err() {
-			if let Some(log) = get_logger() {
-			    log(format!("Codepath did not fail in trigger mode for error {}.  Expected codepath to fail.",
-					trigger_count));
-			}
+			test_codepath!(@log 0,
+				       format!("Codepath did not fail in trigger mode for error {}.  Expected codepath to fail.",
+					       trigger_count));
 			break Some(res)
 		    }
 		}
@@ -413,19 +416,12 @@ macro_rules! test_codepath {
 		    trigger_count += 1;
 		}
 
-		if get_verbosity() >= 2 {
-		    if let Some(log) = get_logger() {
-			log("Running after block".to_string());
-		    }
-		}
+		test_codepath!(@log 1, "Running after block");
+
 		$after;
 	    };
 
-	    if get_verbosity() >= 1 {
-		if let Some(log) = get_logger() {
-		    log(format!("Triggered {trigger_count} of {error_count} errors"));
-		}
-	    }
+	    test_codepath!(@log 1, format!("Triggered {trigger_count} of {error_count} errors"));
 
 	    let ret = CodePathResult{
 		expected_trigger_count: error_count,
@@ -437,11 +433,12 @@ macro_rules! test_codepath {
 	}
     };
 
-    { $codepath: expr; $after: block } => {
+    { $codepath: expr ; $after: block } => {
 	test_codepath!{ {}; $codepath; $after }
     };
 
     { $codepath: expr } => {
 	test_codepath!{ {}; $codepath; {} }
     };
+
 }
