@@ -78,6 +78,7 @@
 
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
+
 pub type Logger = fn(msg: String);
 
 // HIDDEN DOC:
@@ -124,11 +125,9 @@ impl Inner {
         crate_name: Option<&'static str>,
         file_name: &'static str,
         line_no: u32,
-        desc: &'static str,
+        desc: Option<&'static str>,
         err_no: usize,
     ) {
-        let desc = if desc != "" { Some(desc) } else { None };
-
         if self.verbosity >= 1 {
             if let Some(log) = self.logger {
                 let loc = if let Some(c) = crate_name {
@@ -219,10 +218,14 @@ static STATE: LazyLock<State> = LazyLock::new(|| State::default());
 #[macro_export]
 macro_rules! failpoint {
     ($exp: expr, [ $err1: expr, $err2: expr, $err3: expr ]) => {{
-        failpoint!($exp, "", [$err1, $err2, $err3])
+        failpoint!(@i3 $exp, None, [$err1, $err2, $err3])
     }};
 
     ($exp: expr, $desc: expr, [ $err1: expr, $err2: expr, $err3: expr ]) => {{
+	failpoint!(@i3 $exp, Some($desc), [$err1, $err2, $err3])
+    }};
+
+    (@i3 $exp: expr, $desc: expr, [ $err1: expr, $err2: expr, $err3: expr ]) => {{
         // Evaluate exp OUTSIDE of the mutex to prevent possible
         // deadlocks.
         let res = $exp;
@@ -268,10 +271,14 @@ macro_rules! failpoint {
     }};
 
     ($exp: expr, [ $err1: expr, $err2: expr ]) => {{
-        failpoint!($exp, "", [$err1, $err2])
+        failpoint!(@i2 $exp, None, [$err1, $err2])
     }};
 
     ($exp: expr, $desc: expr, [ $err1: expr, $err2: expr ]) => {{
+        failpoint!(@i2 $exp, Some($desc), [$err1, $err2])
+    }};
+
+    (@i2 $exp: expr, $desc: expr, [ $err1: expr, $err2: expr ]) => {{
         // Evaluate exp OUTSIDE of the mutex to prevent possible
         // deadlocks.
         let res = $exp;
@@ -309,10 +316,14 @@ macro_rules! failpoint {
     }};
 
     ($exp: expr, [ $err: expr ]) => {{
-        failpoint!($exp, "", [$err])
+        failpoint!(@i1 $exp, None, [$err])
     }};
 
     ($exp: expr, $desc: expr, [ $err: expr ]) => {{
+        failpoint!(@i1 $exp, Some($desc), [$err])
+    }};
+
+    (@i1 $exp: expr, $desc: expr, [ $err: expr ]) => {{
         // Evaluate exp OUTSIDE of the mutex to prevent possible
         // deadlocks.
         let res = $exp;
@@ -349,7 +360,6 @@ impl<T, E> CodePathResult<T, E> {
         self.trigger_count == self.expected_trigger_count
     }
 }
-
 
 
 #[macro_export]
