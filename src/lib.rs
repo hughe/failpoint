@@ -146,6 +146,8 @@ impl Inner {
     }
 }
 
+static STATE: LazyLock<State> = LazyLock::new(|| State::default());
+
 // See HIDDEN DOC above.
 #[doc(hidden)]
 pub struct State {
@@ -166,6 +168,8 @@ pub fn get_state() -> &'static State {
     &*STATE
 }
 
+// See HIDDEN DOC above.
+#[doc(hidden)]
 pub fn lock_state<'a>() -> MutexGuard<'a, Inner> {
     let state = get_state();
     let g = state.mu.lock().unwrap();
@@ -211,8 +215,88 @@ pub fn log_if_verbose(level: i32, msg: String) {
     }
 }
 
-static STATE: LazyLock<State> = LazyLock::new(|| State::default());
-
+/// Injects a failpoint into code for testing error conditions.
+///
+/// The `failpoint!` macro wraps an expression (usually a function call) that returns a `Result<T, E>`
+/// and provides a mechanism to inject errors during testing. The macro takes the expression and
+/// one to three error values that can be returned instead of the original result.
+///
+/// # Arguments
+///
+/// * `$exp` - An expression that evaluates to a `Result<T, E>`
+/// * `$err1`, `$err2`, `$err3` - Error expressions of type `E` (1-3 errors supported)
+/// * `$desc` - Optional description string for logging (when provided)
+///
+/// # Modes
+///
+/// The failpoint system operates in two modes:
+///
+/// - **Count mode**: Counts how many failpoints exist in a code path without triggering errors
+/// - **Trigger mode**: Triggers specific errors at specific failpoints
+///
+/// # Examples
+///
+/// ## Basic usage with single error
+///
+/// ```rust
+/// use failpoint::{failpoint, start_counter, get_count, start_trigger};
+/// use anyhow::Error;
+///
+/// fn do_something() -> Result<(), Error> {
+///     Ok(())
+/// }
+///
+/// // Count mode: count failpoints without triggering
+/// start_counter();
+/// let result = failpoint!(do_something(), [Error::msg("Test error")]);
+/// assert!(result.is_ok());
+/// assert_eq!(get_count(), 1);
+///
+/// // Trigger mode: trigger the first error
+/// start_trigger(1);
+/// let result = failpoint!(do_something(), [Error::msg("Test error")]);
+/// assert!(result.is_err());
+/// ```
+///
+/// ## Multiple errors
+///
+/// ```rust
+/// use failpoint::{failpoint, start_trigger};
+/// use anyhow::Error;
+///
+/// fn do_something() -> Result<(), Error> {
+///     Ok(())
+/// }
+///
+/// // Trigger the second error in the sequence
+/// start_trigger(2);
+/// let result = failpoint!(do_something(), [
+///     Error::msg("Error 1"),
+///     Error::msg("Error 2")
+/// ]);
+/// assert!(result.is_err());
+/// assert_eq!(result.unwrap_err().to_string(), "Error 1");
+/// ```
+///
+/// ## With description for logging
+///
+/// ```rust
+/// use failpoint::{failpoint, start_trigger, set_logger, set_verbosity};
+/// use anyhow::Error;
+///
+/// fn do_something() -> Result<(), Error> {
+///     Ok(())
+/// }
+///
+/// set_verbosity(1);
+/// set_logger(Some(Box::new(|msg| println!("{}", msg))));
+///
+/// start_trigger(1);
+/// let result = failpoint!(do_something(), "Database connection", [
+///     Error::msg("Connection failed")
+/// ]);
+/// assert!(result.is_err());
+/// ```
 #[macro_export]
 macro_rules! failpoint {
     ($exp: expr, [ $err1: expr, $err2: expr, $err3: expr ]) => {{
