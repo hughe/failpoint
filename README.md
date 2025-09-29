@@ -1,12 +1,12 @@
 # failpoint - Fault Injection
 
-A lightweight Rust library for fault injection testing. Simulate errors in your code to verify error handling paths work correctly.
+A lightweight Rust library for fault injection testing. Simulate
+errors in your code to verify error handling paths work correctly.
 
 ## Features
 
 - **Simple failpoint injection** - Add failpoints to your code that can simulate errors
 - **Automatic error path testing** - Use `test_codepath!` to systematically test all error conditions
-- **Zero runtime overhead** - Failpoints only activate during testing
 
 ## Usage
 
@@ -107,7 +107,10 @@ differs from `fault-injection` in the following ways:
    ...
 3. `fault-injection` is simpler.
 
+## Thanks
 
+Thank you to the authors of `fault-injection` for showing me how to
+get started.
 
 
 
