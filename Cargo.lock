@@ -13,6 +13,7 @@ name = "failpoint"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "test_log_collector",
  "thiserror",
 ]
 
@@ -44,6 +45,10 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
+
+[[package]]
+name = "test_log_collector"
+version = "0.1.0"
 
 [[package]]
 name = "thiserror"

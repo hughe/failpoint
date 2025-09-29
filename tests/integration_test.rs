@@ -1,6 +1,9 @@
 use anyhow::Error;
+use std::io::Write;
 
 use failpoint::*;
+use test_log_collector::TestLogCollector;
+
 
 #[test]
 fn test_counter_mode() {
@@ -104,9 +107,16 @@ fn test_test_codepath() {
 fn test_test_codepath_two() {
 
     set_verbosity(2);
-    set_logger(Some(| msg: String | {
-	eprintln!("{}", msg);
-    }));
+
+    let log_collector = TestLogCollector::new_shared();
+    let collector_clone = log_collector.clone();
+
+    let logger = Box::new(move |msg: String| {
+        let mut collector = collector_clone.lock().unwrap();
+        writeln!(collector, "{}", msg).unwrap();
+    });
+
+    set_logger(Some(logger));
 
     fn do_something() -> Result<(), Error> {
         Ok(())
@@ -137,6 +147,16 @@ fn test_test_codepath_two() {
     assert_eq!(2, res.trigger_count);
     assert_eq!(2, res.expected_trigger_count);
     assert!(res.unexpected_result.is_none());
+
+    // Check that log messages were written
+    let collector = log_collector.lock().unwrap();
+    let log_count = collector.count();
+    assert!(log_count > 0, "Expected some log messages, but got none");
+
+    let messages = collector.clone_lines();
+    // You can also check for specific messages
+    let has_trigger_msg = messages.iter().any(|msg| msg.contains("Triggered failpoint"));
+    assert!(has_trigger_msg, "Expected a trigger message in logs");
 
     set_verbosity(0);
     set_logger(None);

@@ -79,7 +79,7 @@
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
 
-pub type Logger = fn(msg: String);
+pub type Logger = Box<dyn Fn(String) + Send + Sync>;
 
 // HIDDEN DOC:
 //
@@ -129,7 +129,7 @@ impl Inner {
         err_no: usize,
     ) {
         if self.verbosity >= 1 {
-            if let Some(log) = self.logger {
+            if let Some(ref log) = self.logger {
                 let loc = if let Some(c) = crate_name {
                     format!("{file_name}:{line_no} error {err_no} in {c}")
                 } else {
@@ -202,9 +202,13 @@ pub fn set_logger(l: Option<Logger>) {
 
 // See HIDDEN DOC above.
 #[doc(hidden)]
-pub fn get_logger_and_verbosity() -> (Option<Logger>, i32) {
+pub fn log_if_verbose(level: i32, msg: String) {
     let g = lock_state();
-    (g.logger, g.verbosity)
+    if g.verbosity >= level {
+        if let Some(ref log_fn) = g.logger {
+            log_fn(msg);
+        }
+    }
 }
 
 static STATE: LazyLock<State> = LazyLock::new(|| State::default());
@@ -361,13 +365,8 @@ macro_rules! test_codepath {
 
     (@log $level:expr, $msg:expr) => {
 	{
-	    use failpoint::get_logger_and_verbosity;
-	    let (log_fn_opt, verbosity) = get_logger_and_verbosity();
-	    if verbosity >= $level {
-	    	if let Some(log_fn) = log_fn_opt {
-	            log_fn($msg.to_string());
-	     	}
-	    }
+	    use failpoint::log_if_verbose;
+	    log_if_verbose($level, $msg.to_string());
 	}
     };
 

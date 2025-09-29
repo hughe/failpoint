@@ -14,8 +14,12 @@ cargo build
 ```
 
 ### Testing
+
+Because the library uses a thread safe singleton for holding it's
+state, running the tests in parallel can have unpredictable results.
+
 ```bash
-cargo test
+cargo test -- --test-threads=1 
 ```
 
 ### Documentation
