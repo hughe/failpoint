@@ -64,12 +64,59 @@ fn test_all_errors() {
 }
 ```
 
+## Compiling Out Failpoints
+
+By default, the `failpoint` library is fully enabled via the `failpoint_enabled` feature flag. For production builds, you can compile out all failpoint functionality to achieve zero runtime overhead.
+
+### Disabling failpoints
+
+Add the library to your `Cargo.toml` with `default-features = false`:
+
+```toml
+[dependencies]
+failpoint = { version = "0.1", default-features = false }
+```
+
+When disabled, all failpoint macros and functions become no-ops that are optimized away by the compiler, resulting in zero runtime cost.
+
+### Using in development only
+
+A common pattern is to enable failpoints only in development/test builds:
+
+```toml
+[dev-dependencies]
+failpoint = "0.1"
+
+[dependencies]
+failpoint = { version = "0.1", default-features = false }
+```
+
+### Explicitly controlling the feature
+
+You can also explicitly enable or disable the feature:
+
+```toml
+# Explicitly enable
+[dependencies]
+failpoint = { version = "0.1", features = ["failpoint_enabled"] }
+
+# Explicitly disable
+[dependencies]
+failpoint = { version = "0.1", default-features = false }
+```
+
 ## Building and Testing
 
 ### Build the library
 
 ```bash
 cargo build
+```
+
+### Build without failpoints
+
+```bash
+cargo build --no-default-features
 ```
 
 ### Run tests

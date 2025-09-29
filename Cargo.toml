@@ -9,6 +9,10 @@ license = "MIT OR Apache-2.0"
 [lib]
 name = "failpoint"
 
+[features]
+default = ["failpoint_enabled"]
+failpoint_enabled = []
+
 [dependencies]
 
 [dev-dependencies]

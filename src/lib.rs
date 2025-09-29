@@ -76,16 +76,29 @@
 //! # }
 //! ```
 
+#[cfg(feature = "failpoint_enabled")]
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
-
 pub type Logger = Box<dyn Fn(String) + Send + Sync>;
+
+
+#[cfg(feature = "failpoint_enabled")]
+pub fn is_enabled() -> bool {
+    true
+}
+
+#[cfg(not(feature = "failpoint_enabled"))]
+pub fn is_enabled() -> bool {
+    false
+}
+
 
 // HIDDEN DOC:
 //
 // Has to be public so that it can be accessed by the macro code
 // from other crates, but it is not part of the public interface so we
 // hide it from rust doc.
+#[cfg(feature = "failpoint_enabled")]
 #[derive(Debug, PartialEq)]
 #[doc(hidden)]
 pub enum Mode {
@@ -93,6 +106,7 @@ pub enum Mode {
     Trigger,
 }
 
+#[cfg(feature = "failpoint_enabled")]
 #[doc(hidden)]
 pub struct Inner {
     pub mode: Mode,
@@ -105,6 +119,7 @@ pub struct Inner {
     pub trigger: i64,
 }
 
+#[cfg(feature = "failpoint_enabled")]
 impl Default for Inner {
     fn default() -> Self {
         Self {
@@ -119,6 +134,7 @@ impl Default for Inner {
     }
 }
 
+#[cfg(feature = "failpoint_enabled")]
 impl Inner {
     pub fn report_trigger(
         &mut self,
@@ -146,14 +162,17 @@ impl Inner {
     }
 }
 
+#[cfg(feature = "failpoint_enabled")]
 static STATE: LazyLock<State> = LazyLock::new(|| State::default());
 
 // See HIDDEN DOC above.
+#[cfg(feature = "failpoint_enabled")]
 #[doc(hidden)]
 pub struct State {
     pub mu: Mutex<Inner>,
 }
 
+#[cfg(feature = "failpoint_enabled")]
 impl Default for State {
     fn default() -> Self {
         Self {
@@ -163,12 +182,14 @@ impl Default for State {
 }
 
 // See HIDDEN DOC above.
+#[cfg(feature = "failpoint_enabled")]
 #[doc(hidden)]
 pub fn get_state() -> &'static State {
     &*STATE
 }
 
 // See HIDDEN DOC above.
+#[cfg(feature = "failpoint_enabled")]
 #[doc(hidden)]
 pub fn lock_state<'a>() -> MutexGuard<'a, Inner> {
     let state = get_state();
@@ -197,11 +218,16 @@ pub fn lock_state<'a>() -> MutexGuard<'a, Inner> {
 /// assert!(result.is_ok());
 /// assert_eq!(get_count(), 1);
 /// ```
+#[cfg(feature = "failpoint_enabled")]
 pub fn start_counter() {
     let mut g = lock_state();
     g.mode = Mode::Count;
     g.counter = 0;
 }
+
+#[cfg(not(feature = "failpoint_enabled"))]
+#[inline]
+pub fn start_counter() {}
 
 /// Enters trigger mode and sets which failpoint should trigger an error.
 ///
@@ -224,11 +250,16 @@ pub fn start_counter() {
 /// let result = failpoint!(do_something(), [Error::msg("Test error")]);
 /// assert!(result.is_err());
 /// ```
+#[cfg(feature = "failpoint_enabled")]
 pub fn start_trigger(trigger_after: i64) {
     let mut g = lock_state();
     g.mode = Mode::Trigger;
     g.trigger = trigger_after;
 }
+
+#[cfg(not(feature = "failpoint_enabled"))]
+#[inline]
+pub fn start_trigger(_trigger_after: i64) {}
 
 /// Returns the current count of failpoints encountered in count mode.
 ///
@@ -254,9 +285,16 @@ pub fn start_trigger(trigger_after: i64) {
 /// let _result = failpoint!(do_something(), [Error::msg("Error 1"), Error::msg("Error 2")]);
 /// assert_eq!(get_count(), 2); // Two errors = count of 2
 /// ```
+#[cfg(feature = "failpoint_enabled")]
 pub fn get_count() -> i64 {
     let g = lock_state();
     g.counter
+}
+
+#[cfg(not(feature = "failpoint_enabled"))]
+#[inline]
+pub fn get_count() -> i64 {
+    0
 }
 
 /// Sets the verbosity level for logging output.
@@ -273,10 +311,15 @@ pub fn get_count() -> i64 {
 /// set_verbosity(2); // Enable verbose logging
 /// set_logger(Some(Box::new(|msg| println!("{}", msg))));
 /// ```
+#[cfg(feature = "failpoint_enabled")]
 pub fn set_verbosity(v: i32) {
     let mut g = lock_state();
     g.verbosity = v;
 }
+
+#[cfg(not(feature = "failpoint_enabled"))]
+#[inline]
+pub fn set_verbosity(_v: i32) {}
 
 /// Sets the logger function for failpoint output.
 ///
@@ -296,12 +339,18 @@ pub fn set_verbosity(v: i32) {
 /// // Disable logging
 /// set_logger(None);
 /// ```
+#[cfg(feature = "failpoint_enabled")]
 pub fn set_logger(l: Option<Logger>) {
     let mut g = lock_state();
     g.logger = l;
 }
 
+#[cfg(not(feature = "failpoint_enabled"))]
+#[inline]
+pub fn set_logger(_l: Option<Logger>) {}
+
 // See HIDDEN DOC above.
+#[cfg(feature = "failpoint_enabled")]
 #[doc(hidden)]
 pub fn log_if_verbose(level: i32, msg: String) {
     let g = lock_state();
@@ -311,6 +360,11 @@ pub fn log_if_verbose(level: i32, msg: String) {
         }
     }
 }
+
+#[cfg(not(feature = "failpoint_enabled"))]
+#[doc(hidden)]
+#[inline]
+pub fn log_if_verbose(_level: i32, _msg: String) {}
 
 /// Injects a failpoint into code for testing error conditions.
 ///
@@ -394,6 +448,7 @@ pub fn log_if_verbose(level: i32, msg: String) {
 /// ]);
 /// assert!(result.is_err());
 /// ```
+#[cfg(feature = "failpoint_enabled")]
 #[macro_export]
 macro_rules! failpoint {
     ($exp: expr, [ $err1: expr, $err2: expr, $err3: expr ]) => {{
@@ -528,6 +583,49 @@ macro_rules! failpoint {
     }};
 }
 
+#[cfg(not(feature = "failpoint_enabled"))]
+#[macro_export]
+macro_rules! failpoint {
+    ($exp: expr, [ $err1: expr, $err2: expr, $err3: expr ]) => {{
+        let _ = (|| $err1);
+        let _ = (|| $err2);
+        let _ = (|| $err3);
+        $exp
+    }};
+
+    ($exp: expr, $desc: expr, [ $err1: expr, $err2: expr, $err3: expr ]) => {{
+        let _ = $desc;
+        let _ = (|| $err1);
+        let _ = (|| $err2);
+        let _ = (|| $err3);
+        $exp
+    }};
+
+    ($exp: expr, [ $err1: expr, $err2: expr ]) => {{
+        let _ = (|| $err1);
+        let _ = (|| $err2);
+        $exp
+    }};
+
+    ($exp: expr, $desc: expr, [ $err1: expr, $err2: expr ]) => {{
+        let _ = $desc;
+        let _ = (|| $err1);
+        let _ = (|| $err2);
+        $exp
+    }};
+
+    ($exp: expr, [ $err: expr ]) => {{
+        let _ = (|| $err);
+        $exp
+    }};
+
+    ($exp: expr, $desc: expr, [ $err: expr ]) => {{
+        let _ = $desc;
+        let _ = (|| $err);
+        $exp
+    }};
+}
+
 pub struct CodePathResult<T, E> {
     pub expected_trigger_count: i64,
     pub trigger_count: i64,
@@ -588,6 +686,7 @@ impl<T, E> CodePathResult<T, E> {
 ///
 /// assert!(result.success());
 /// ```
+#[cfg(feature = "failpoint_enabled")]
 #[macro_export]
 macro_rules! test_codepath {
 
@@ -676,4 +775,28 @@ macro_rules! test_codepath {
 	test_codepath!{ {}; $codepath; {} }
     };
 
+}
+
+#[cfg(not(feature = "failpoint_enabled"))]
+#[macro_export]
+macro_rules! test_codepath {
+    { $before: block ; $codepath: expr ; $after: block } => {{
+        use failpoint::CodePathResult;
+        $before;
+        let res = $codepath;
+        $after;
+        CodePathResult::<_, _> {
+            expected_trigger_count: 0,
+            trigger_count: 0,
+            unexpected_result: Some(res),
+        }
+    }};
+
+    { $codepath: expr ; $after: block } => {
+        test_codepath!{ {}; $codepath; $after }
+    };
+
+    { $codepath: expr } => {
+        test_codepath!{ {}; $codepath; {} }
+    };
 }
