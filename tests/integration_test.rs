@@ -104,7 +104,9 @@ fn test_test_codepath() {
 fn test_test_codepath_two() {
 
     set_verbosity(2);
-    set_logger(Some(| msg: String | { eprintln!("{}", msg); }));
+    set_logger(Some(| msg: String | {
+	eprintln!("{}", msg);
+    }));
 
     fn do_something() -> Result<(), Error> {
         Ok(())

@@ -429,7 +429,7 @@ macro_rules! test_codepath {
 		$after;
 	    };
 
-	    test_codepath!(@log 1, format!("Triggered {trigger_count} of {error_count} errors"));
+	    test_codepath!(@log 1, format!("Triggered {} of {} errors", trigger_count - 1, error_count));
 
 	    let ret = CodePathResult{
 		expected_trigger_count: error_count,
