@@ -13,3 +13,4 @@ name = "failpoint"
 
 [dev-dependencies]
 anyhow = "1.0.99"
+thiserror = "2.0.17"

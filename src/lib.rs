@@ -383,10 +383,13 @@ macro_rules! test_codepath {
 		    break None;
 		}
 
+		test_codepath!(@log 2, "\n------------------------------------------------------------".to_string());
+		test_codepath!(@log 2,
+			       format!("Testing codepath in {} mode", if mode == Mode::Count { "COUNT" } else { "TRIGGER" }));
+
 		test_codepath!(@log 2, "Running before block".to_string());
 
 		$before;
-
 
 		if mode == Mode::Count {
 		    start_counter();

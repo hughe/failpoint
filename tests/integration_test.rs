@@ -1,6 +1,6 @@
 use anyhow::Error;
 
-use failpoint::{failpoint, get_count, start_counter, start_trigger, test_codepath};
+use failpoint::*;
 
 #[test]
 fn test_counter_mode() {
@@ -89,9 +89,7 @@ fn test_test_codepath() {
     }
 
     let res = test_codepath! {
-    {
             do_failpoint()
-    }
     };
 
     assert!(res.success());
@@ -99,4 +97,162 @@ fn test_test_codepath() {
     assert_eq!(1, res.trigger_count);
     assert_eq!(1, res.expected_trigger_count);
     assert!(res.unexpected_result.is_none());
+}
+
+
+#[test]
+fn test_test_codepath_two() {
+
+    set_verbosity(2);
+    set_logger(Some(| msg: String | { eprintln!("{}", msg); }));
+
+    fn do_something() -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn do_failpoint1() -> Result<(), Error> {
+        failpoint!(do_something(), "Once", [Error::msg("Error 1")])
+    }
+
+    fn do_failpoint2() -> Result<(), Error> {
+        failpoint!(do_something(), "Twice", [Error::msg("Error 2")])
+    }
+
+    let res = test_codepath! {
+	{
+	    let res1 = do_failpoint1();
+	    if res1.is_err() {
+		res1
+	    } else {
+		do_failpoint2()
+	    }
+	}
+
+    };
+
+    assert!(res.success());
+
+    assert_eq!(2, res.trigger_count);
+    assert_eq!(2, res.expected_trigger_count);
+    assert!(res.unexpected_result.is_none());
+
+    set_verbosity(0);
+    set_logger(None);
+}
+
+#[test]
+fn test_test_codepath_before() {
+    let mut before_ran = false;
+    fn do_something() -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn do_failpoint() -> Result<(), Error> {
+        failpoint!(do_something(), [Error::msg("Error 1")])
+    }
+
+    let res = test_codepath! {
+	{
+	    before_ran = true;
+	};
+	{
+            do_failpoint()
+	};
+	{
+	}
+    };
+
+    assert!(res.success());
+
+    assert_eq!(1, res.trigger_count);
+    assert_eq!(1, res.expected_trigger_count);
+    assert!(res.unexpected_result.is_none());
+
+    assert!(before_ran);
+}
+
+#[test]
+fn test_test_codepath_after() {
+    let mut after_ran = false;
+    fn do_something() -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn do_failpoint() -> Result<(), Error> {
+        failpoint!(do_something(), [Error::msg("Error 1")])
+    }
+
+    let res = test_codepath! {
+	{
+            do_failpoint()
+	};
+	{
+	    after_ran = true;
+	}
+    };
+
+    assert!(res.success());
+
+    assert_eq!(1, res.trigger_count);
+    assert_eq!(1, res.expected_trigger_count);
+    assert!(res.unexpected_result.is_none());
+
+    assert!(after_ran);
+}
+
+#[test]
+fn test_test_codepath_before_and_after() {
+    let mut before_ran = false;
+    let mut after_ran = false;
+
+    fn do_something() -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn do_failpoint() -> Result<(), Error> {
+        failpoint!(do_something(), [Error::msg("Error 1")])
+    }
+
+    let res = test_codepath! {
+	{
+	    before_ran = true;
+	};
+	{
+            do_failpoint()
+	};
+	{
+	    after_ran = true;
+	}
+    };
+
+    assert!(res.success());
+
+    assert_eq!(1, res.trigger_count);
+    assert_eq!(1, res.expected_trigger_count);
+    assert!(res.unexpected_result.is_none());
+
+    assert!(before_ran);
+    assert!(after_ran);
+}
+
+#[test]
+fn test_test_codepath_codepath_does_not_fail() {
+    fn do_something() -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn do_failpoint() -> Result<(), Error> {
+        _ = failpoint!(do_something(), [Error::msg("Error 1")]);
+	Ok(())
+    }
+
+    let res = test_codepath! {
+            do_failpoint()
+    };
+
+    assert!(!res.success());
+
+    assert_eq!(0, res.trigger_count);
+    assert_eq!(1, res.expected_trigger_count);
+    assert!(res.unexpected_result.is_some());
 }
