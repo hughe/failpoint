@@ -22,6 +22,42 @@ state, running the tests in parallel can have unpredictable results.
 cargo test -- --test-threads=1 
 ```
 
+### Examples
+
+Run an example
+
+```bash
+cargo run --example EXAMPLE-NAME
+```
+
+Run the `conditional_comp` example which demostrates how to check if
+the failpoint library is disabled.
+
+With failpoint enabled:
+
+```bash
+cargo run --example conditional_comp
+```
+
+Output:
+
+```
+failpoint! is enabled
+```
+
+
+With failpoint disabled:
+
+```bash
+cargo run --example conditional_comp --no-default-features
+```
+
+Output:
+
+```
+failpoint! is enabled
+```
+
 ### Documentation
 ```bash
 cargo doc --open

@@ -139,6 +139,47 @@ cargo test --doc -- --test-threads=1
 cargo doc --open
 ```
 
+### Examples
+
+Run an example
+
+```bash
+cargo run --example EXAMPLE-NAME
+```
+
+E.g., 
+
+```bash
+cargo run --example failpoint
+```
+
+Run the `conditional_comp` example which demostrates how to check if
+the failpoint library is disabled.
+
+With failpoint enabled:
+
+```bash
+cargo run --example conditional_comp
+```
+
+Output:
+
+```
+failpoint! is enabled
+```
+
+
+With failpoint disabled:
+
+```bash
+cargo run --example conditional_comp --no-default-features
+```
+
+Output:
+
+```
+failpoint! is enabled
+```
 
 
 ## Other work
