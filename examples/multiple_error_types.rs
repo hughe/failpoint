@@ -69,5 +69,5 @@ fn main() {
     assert!(res.success());
     assert_eq!(2, res.expected_trigger_count);
     assert_eq!(2, res.trigger_count);
-    assert!(matches!(res.unexpected_result, None));
+    assert!(res.unexpected_result.is_none());
 }

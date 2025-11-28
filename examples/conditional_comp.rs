@@ -11,8 +11,6 @@
 /// ```shell
 /// cargo run --example conditional_comp --no-default-features
 /// ```
-use anyhow;
-
 use failpoint::failpoint;
 
 fn do_something_important() -> Result<(), anyhow::Error> {

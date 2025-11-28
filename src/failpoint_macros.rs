@@ -16,7 +16,7 @@
 /// The failpoint macro operates in two modes:
 ///
 /// - **Count mode**: Counts how many failpoints exist in a code path
-/// without triggering errors
+///   without triggering errors
 /// - **Trigger mode**: Triggers specific errors at specific failpoints
 ///
 /// # Examples
@@ -76,27 +76,27 @@ macro_rules! failpoint {
 
     (@internal $res: ident, $err: expr, $desc_opt: expr) => {{
         {
-            let res = $res;
+            let res_ = $res;
 
             use failpoint::{Mode, lock_state};
             const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
             let mut g = lock_state();
 
             if g.mode == Mode::Count {
-                g.counter = g.counter + 1;
-                res
+                g.counter += 1;
+                res_
             } else {
-                g.trigger = g.trigger - 1;
+                g.trigger -= 1;
                 if g.trigger == 0 {
-                    if res.is_ok() {
+                    if res_.is_ok() {
                         g.report_trigger(CRATE_NAME, file!(), line!(), $desc_opt, 2);
                         Err($err)
                     } else {
                         g.report_unexpected_failure(CRATE_NAME, file!(), line!(), $desc_opt);
-                        res
+                        res_
                     }
                 } else {
-                    res
+                    res_
                 }
             }
         }

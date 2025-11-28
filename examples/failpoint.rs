@@ -1,5 +1,3 @@
-use anyhow;
-
 use failpoint::failpoint;
 
 // This is the function that we're going to put a fail point

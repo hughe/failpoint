@@ -206,7 +206,7 @@ impl Inner {
 }
 
 #[cfg(feature = "failpoint_enabled")]
-static STATE: LazyLock<State> = LazyLock::new(|| State::default());
+static STATE: LazyLock<State> = LazyLock::new(State::default);
 
 // See HIDDEN DOC above.
 #[cfg(feature = "failpoint_enabled")]
@@ -228,7 +228,7 @@ impl Default for State {
 #[cfg(feature = "failpoint_enabled")]
 #[doc(hidden)]
 pub fn get_state() -> &'static State {
-    &*STATE
+    &STATE
 }
 
 // See HIDDEN DOC above.
