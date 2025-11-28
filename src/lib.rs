@@ -43,13 +43,13 @@
 //! mode.
 //!
 //! ```rust
-//! # use failpoint::{failpoint, start_counter, get_count};
+//! # use failpoint::failpoint;
 //! # use anyhow;
 //! # fn main() -> Result<(), anyhow::Error> {
 //! # fn do_something() -> Result<(), anyhow::Error> {
 //! #   Ok(())
 //! # }
-//! start_counter();
+//! failpoint::start_counter();
 //!
 //! let res = do_something();
 //!
@@ -60,7 +60,7 @@
 //! assert!(res.is_ok());
 //!
 //! // There is one failpoint in code path.
-//! assert_eq!(1, get_count());
+//! assert_eq!(1, failpoint::get_count());
 //! # Ok(())
 //! # }
 //! ```
@@ -73,13 +73,13 @@
 //! cause a failpoint to return the nth error on the codepath.
 //!
 //! ```rust
-//! # use failpoint::{failpoint, start_trigger};
+//! # use failpoint::failpoint;
 //! # use anyhow;
 //! # fn main() {
 //! # fn do_something() -> Result<(), anyhow::Error> {
 //! #   Ok(())
 //! # }
-//! start_trigger(1);
+//! failpoint::start_trigger(1);
 //!
 //! let res = do_something();
 //! let res = failpoint!(res, anyhow::Error::msg("Error"));
@@ -88,11 +88,8 @@
 //! # }
 //! ```
 
-#[macro_use]
-mod failpoint_macros;
-
-#[macro_use]
 mod codepath_macros;
+mod failpoint_macros;
 
 #[cfg(feature = "failpoint_enabled")]
 use std::sync::{LazyLock, Mutex, MutexGuard};
@@ -252,18 +249,18 @@ pub fn lock_state<'a>() -> MutexGuard<'a, Inner> {
 /// # Examples
 ///
 /// ```rust
-/// use failpoint::{failpoint, start_counter, get_count};
+/// use failpoint::failpoint;
 /// use anyhow::Error;
 ///
 /// fn do_something() -> Result<(), Error> {
 ///     Ok(())
 /// }
 ///
-/// start_counter();
+/// failpoint::start_counter();
 /// let result = do_something();
 /// let result = failpoint!(result, Error::msg("Test error"));
 /// assert!(result.is_ok());
-/// assert_eq!(get_count(), 1);
+/// assert_eq!(failpoint::get_count(), 1);
 /// ```
 #[cfg(feature = "failpoint_enabled")]
 pub fn start_counter() {
@@ -285,7 +282,7 @@ pub fn start_counter() {}
 /// # Examples
 ///
 /// ```rust
-/// use failpoint::{failpoint, start_trigger};
+/// use failpoint::failpoint;
 /// use anyhow::Error;
 ///
 /// fn do_something() -> Result<(), Error> {
@@ -293,7 +290,7 @@ pub fn start_counter() {}
 /// }
 ///
 /// // Trigger the first failpoint encountered
-/// start_trigger(1);
+/// failpoint::start_trigger(1);
 /// let result = do_something();
 /// let result = failpoint!(result, Error::msg("Test error"));
 /// assert!(result.is_err());
@@ -322,19 +319,19 @@ pub fn start_trigger(_trigger_after: i64) {}
 /// # Examples
 ///
 /// ```rust
-/// use failpoint::{failpoint, start_counter, get_count};
+/// use failpoint::failpoint;
 /// use anyhow::Error;
 ///
 /// fn do_something() -> Result<(), Error> {
 ///     Ok(())
 /// }
 ///
-/// start_counter();
+/// failpoint::start_counter();
 ///
 /// let result = do_something();
 /// let result = failpoint!(result, Error::msg("Error 1"));
 /// let result = failpoint!(result, Error::msg("Error 2"));
-/// assert_eq!(get_count(), 2); // Two errors = count of 2
+/// assert_eq!(failpoint::get_count(), 2); // Two errors = count of 2
 /// # _ = result;
 /// ```
 #[cfg(feature = "failpoint_enabled")]
@@ -358,10 +355,10 @@ pub fn get_count() -> i64 {
 /// # Examples
 ///
 /// ```rust
-/// use failpoint::{set_verbosity, set_logger};
+/// use failpoint;
 ///
-/// set_verbosity(2); // Enable verbose logging
-/// set_logger(Some(Box::new(|msg| println!("{}", msg))));
+/// failpoint::set_verbosity(2); // Enable verbose logging
+/// failpoint::set_logger(Some(Box::new(|msg| println!("{}", msg))));
 /// ```
 #[cfg(feature = "failpoint_enabled")]
 pub fn set_verbosity(v: i32) {
@@ -382,14 +379,14 @@ pub fn set_verbosity(_v: i32) {}
 /// # Examples
 ///
 /// ```rust
-/// use failpoint::{set_logger, set_verbosity};
+/// use failpoint;
 ///
 /// // Enable logging to stdout
-/// set_verbosity(1);
-/// set_logger(Some(Box::new(|msg| println!("FAILPOINT: {}", msg))));
+/// failpoint::set_verbosity(1);
+/// failpoint::set_logger(Some(Box::new(|msg| println!("FAILPOINT: {}", msg))));
 ///
 /// // Disable logging
-/// set_logger(None);
+/// failpoint::set_logger(None);
 /// ```
 #[cfg(feature = "failpoint_enabled")]
 pub fn set_logger(l: Option<Logger>) {

@@ -1,6 +1,6 @@
 use anyhow;
 
-use failpoint::{failpoint, get_count, start_counter, start_trigger};
+use failpoint::failpoint;
 
 // This is the function that we're going to put a fail point
 // around. This might be a function that performs some IO, a system
@@ -30,7 +30,7 @@ fn main() {
 
     // First we count the number of failpoints there are when we run
     // `do_something_else()`.
-    start_counter();
+    failpoint::start_counter();
 
     let res = do_something_else();
 
@@ -38,13 +38,13 @@ fn main() {
     assert!(res.is_ok());
 
     // There should be one fail point.
-    assert_eq!(1, get_count());
+    assert_eq!(1, failpoint::get_count());
 
     // Now run it in trigger mode.  The first time we run
     // `do_something_else()`, it will fail, because the
     // `trigger_after` parameter to `start_trigger()` is `1`, which
     // means trigger the first failpoint.
-    start_trigger(1);
+    failpoint::start_trigger(1);
 
     // Fail the first time because we t
     let res = do_something_else();

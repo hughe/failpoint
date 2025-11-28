@@ -9,7 +9,7 @@
 use anyhow::Error;
 use std::io::Write;
 
-use failpoint::*;
+use failpoint::{failpoint, test_codepath};
 use test_log_collector::TestLogCollector;
 
 // An important funtion whose result we want to change with a fail
@@ -30,10 +30,10 @@ fn test_counter_mode() {
     }
 
     // Start counter mode to count the failpoints.
-    start_counter();
+    failpoint::start_counter();
 
     // We have not seen any failpoints.
-    assert_eq!(0, get_count());
+    assert_eq!(0, failpoint::get_count());
 
     // Run the code under test.
     let res = code_under_test();
@@ -42,7 +42,7 @@ fn test_counter_mode() {
     assert!(res.is_ok());
 
     // We have found 1 failpoint in the code under test.
-    assert_eq!(1, get_count());
+    assert_eq!(1, failpoint::get_count());
 }
 
 #[test]
@@ -55,7 +55,7 @@ fn test_trigger_mode() {
     }
 
     // Run in trigger mode.  Trigger the first failpoint.
-    start_trigger(1);
+    failpoint::start_trigger(1);
 
     // Run the code under test.
     let res = code_under_test();
@@ -83,7 +83,7 @@ fn test_trigger_mode_two() {
     }
 
     // Run in trigger mode.  Trigger the first failpoint.
-    start_trigger(2);
+    failpoint::start_trigger(2);
 
     // Run the code under test.
     let res = code_under_test();
@@ -117,7 +117,7 @@ fn test_test_codepath() {
 #[rustfmt::skip]
 #[test]
 fn test_test_codepath_two() {
-    set_verbosity(2);
+    failpoint::set_verbosity(2);
 
     let log_collector = TestLogCollector::new_shared();
     let collector_clone = log_collector.clone();
@@ -127,7 +127,7 @@ fn test_test_codepath_two() {
         writeln!(collector, "{}", msg).unwrap();
     });
 
-    set_logger(Some(logger));
+    failpoint::set_logger(Some(logger));
 
     fn do_failpoint1() -> Result<(), Error> {
 	let ret = important_function();
@@ -168,8 +168,8 @@ fn test_test_codepath_two() {
         .any(|msg| msg.contains("Triggered failpoint"));
     assert!(has_trigger_msg, "Expected a trigger message in logs");
 
-    set_verbosity(0);
-    set_logger(None);
+    failpoint::set_verbosity(0);
+    failpoint::set_logger(None);
 }
 
 #[rustfmt::skip]

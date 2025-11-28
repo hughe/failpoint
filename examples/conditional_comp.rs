@@ -13,7 +13,7 @@
 /// ```
 use anyhow;
 
-use failpoint::{failpoint, get_count, is_enabled, start_counter};
+use failpoint::failpoint;
 
 fn do_something_important() -> Result<(), anyhow::Error> {
     Ok(())
@@ -27,20 +27,20 @@ fn code_under_test() -> Result<(), anyhow::Error> {
 }
 
 fn main() {
-    if is_enabled() {
+    if failpoint::is_enabled() {
         println!("failpoint! is enabled");
     } else {
         println!("failpoint! is disabled");
     }
-    start_counter();
+    failpoint::start_counter();
 
     let res = code_under_test();
 
     assert!(res.is_ok());
 
-    if is_enabled() {
-        assert_eq!(1, get_count());
+    if failpoint::is_enabled() {
+        assert_eq!(1, failpoint::get_count());
     } else {
-        assert_eq!(0, get_count());
+        assert_eq!(0, failpoint::get_count());
     }
 }

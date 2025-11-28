@@ -15,21 +15,65 @@ errors in your code to verify error handling paths work correctly.
 Use the `failpoint!` macro to inject potential failure points in your code:
 
 ```rust
-use failpoint::{failpoint, start_trigger};
+use anyhow;
 
-fn database_operation() -> Result<String, String> {
-    let result = failpoint!(Ok("success".to_string()), [
-        "Connection failed".to_string(),
-        "Timeout error".to_string(),
-        "Permission denied".to_string()
-    ]);
-    result
+use failpoint::failpoint;
+
+// This is the function that we're going to put a fail point
+// around. This might be a function that performs some IO, a system
+// call or a library function.  It's the thing that you want to
+// simulate errors for.
+fn do_something_important() -> Result<(), anyhow::Error> {
+    Ok(())
 }
 
-// In tests, trigger specific errors
-start_trigger(1); // Triggers the first error
-let result = database_operation();
-assert!(result.is_err());
+// This is how we use the failpoint macro to simulate errors in
+// `do_something_important()`.
+fn do_something_else() -> Result<(), anyhow::Error> {
+    // Some code ...
+
+    let res = do_something_important();
+    // This says that if the failpoint is triggered, then we will
+    // return an error with the message "Error 1". If the failpoint is
+    // not triggered we will return whatever
+    // `do_something_important()` returns.
+    let res = failpoint!(res, anyhow::Error::msg("Error 1"));
+
+    res
+}
+
+fn main() {
+    // This is some code that will test `do_something_else()`.
+
+    // First we count the number of failpoints there are when we run
+    // `do_something_else()`.
+    failpoint::start_counter();
+
+    let res = do_something_else();
+
+    // It succeeded because none of the failpoints were triggered.
+    assert!(res.is_ok());
+
+    // There should be one fail point.
+    assert_eq!(1, failpoint::get_count());
+
+    // Now run it in trigger mode.  The first time we run
+    // `do_something_else()`, it will fail, because the
+    // `trigger_after` parameter to `start_trigger()` is `1`, which
+    // means trigger the first failpoint.
+    failpoint::start_trigger(1);
+
+    // Fail the first time because we t
+    let res = do_something_else();
+    assert!(res.is_err());
+
+    assert_eq!(format!("{}", res.err().unwrap()), "Error 1");
+
+    // The second time, it will succeed, because there are no more
+    // failpoints to trigger.
+    let res = do_something_else();
+    assert!(res.is_ok());
+}
 ```
 
 ### Automated Error Path Testing
@@ -37,30 +81,57 @@ assert!(result.is_err());
 Use `test_codepath!` to automatically test all error paths:
 
 ```rust
+use std::io;
+
+use thiserror::Error;
+
 use failpoint::{failpoint, test_codepath};
 
-fn process_data() -> Result<i32, String> {
-    let value: Result<i32, String> = failpoint!(Ok(42), [
-        "Error 1".to_string(),
-        "Error 2".to_string(),
-        "Error 3".to_string()
-    ]);
-    value
+// An error type.
+#[derive(Error, Debug)]
+enum ExampleError {
+    #[error("a bad thing happened")]
+    BadThing(#[from] io::Error),
+
+    #[error("a worse thing happened")]
+    WorseThing(String),
 }
 
-#[test]
-fn test_all_errors() {
-    let result = test_codepath!({
-        // Setup code runs before each iteration
-    };
-    {
-        process_data()
-    };
-    {
-        // Cleanup code runs after each iteration
-    });
+fn do_the_first_thing() -> Result<(), ExampleError> {
+    Ok(())
+}
 
-    assert!(result.success());
+fn do_the_second_thing() -> Result<(), ExampleError> {
+    Ok(())
+}
+
+fn do_all_the_things() -> Result<(), ExampleError> {
+    let res = do_the_first_thing();
+
+    // A failpoint that will run `do_the_first_thing()`.  If it is
+    // triggered then it will return an `ExampleError::BadThing()`
+    // error.
+    failpoint!(
+        res,
+        ExampleError::BadThing(io::Error::from(io::ErrorKind::NotFound))
+    )?;
+
+    let res = do_the_second_thing();
+    // A failpoint that will run `do_the_second_thing()`.  If it is
+    // triggered then it will return an `ExampleError::WorseThing()`
+    // error.
+    failpoint!(res, ExampleError::WorseThing("Oh no!".to_string()))?;
+
+    Ok(())
+}
+
+fn main() {
+    // Find and excercise all the errors in `do_all_the_things()`.
+    let res = test_codepath!(do_all_the_things());
+
+    // If we encounter an unexpected result, then this assert will
+    // fail.
+    assert!(res.success());
 }
 ```
 
@@ -74,22 +145,11 @@ Add the library to your `Cargo.toml` with `default-features = false`:
 
 ```toml
 [dependencies]
-failpoint = { version = "0.1", default-features = false }
+failpoint = { version = "2.0", default-features = false }
 ```
 
-When disabled, all failpoint macros and functions become no-ops that are optimized away by the compiler, resulting in zero runtime cost.
+When disabled, all failpoint macros and functions become no-ops that should be optimized away by the compiler, resulting in zero runtime cost.
 
-### Using in development only
-
-A common pattern is to enable failpoints only in development/test builds:
-
-```toml
-[dev-dependencies]
-failpoint = "0.1"
-
-[dependencies]
-failpoint = { version = "0.1", default-features = false }
-```
 
 ### Explicitly controlling the feature
 
@@ -98,11 +158,11 @@ You can also explicitly enable or disable the feature:
 ```toml
 # Explicitly enable
 [dependencies]
-failpoint = { version = "0.1", features = ["failpoint_enabled"] }
+failpoint = { version = "2.0", features = ["failpoint_enabled"] }
 
 # Explicitly disable
 [dependencies]
-failpoint = { version = "0.1", default-features = false }
+failpoint = { version = "2.0", default-features = false }
 ```
 
 ## Building and Testing
@@ -111,12 +171,6 @@ failpoint = { version = "0.1", default-features = false }
 
 ```bash
 cargo build
-```
-
-### Build without failpoints
-
-```bash
-cargo build --no-default-features
 ```
 
 ### Run tests
@@ -141,7 +195,7 @@ cargo doc --open
 
 ### Examples
 
-Run an example
+Run an example.  See the `examples` directory
 
 ```bash
 cargo run --example EXAMPLE-NAME
