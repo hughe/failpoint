@@ -55,7 +55,7 @@ cargo run --example conditional_comp --no-default-features
 Output:
 
 ```
-failpoint! is enabled
+failpoint! is disabled
 ```
 
 ### Documentation
@@ -81,5 +81,4 @@ cargo fmt
 
 - This is a Rust library project using Cargo as the build system
 - No external dependencies currently defined in Cargo.toml
-- The codebase is minimal and appears to be in early development stages
 - Licensed under MIT OR Apache-2.0

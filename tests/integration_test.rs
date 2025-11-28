@@ -1,98 +1,110 @@
+/// Integration tests for failpoint.
+///
+/// IMPORTANT: these tests must be run in a single thread, because
+/// they use a global shared state.  For example:
+///
+/// ```
+/// cargo test --all-targets --all-features -- --test-threads=1
+/// ```
 use anyhow::Error;
 use std::io::Write;
 
 use failpoint::*;
 use test_log_collector::TestLogCollector;
 
+// An important funtion whose result we want to change with a fail
+// point in out tests.
+fn important_function() -> Result<(), Error> {
+    Ok(())
+}
 
 #[test]
 fn test_counter_mode() {
-    fn do_something() -> Result<(), Error> {
-        Ok(())
+    // A function to test.
+    fn code_under_test() -> Result<(), Error> {
+        let ret = important_function();
+
+        let ret = failpoint!(ret, Error::msg("ERROR"), "Fail with \"ERROR\"");
+
+        ret
     }
 
+    // Start counter mode to count the failpoints.
     start_counter();
 
+    // We have not seen any failpoints.
     assert_eq!(0, get_count());
 
-    let res = failpoint!(do_something(), [Error::msg("Error")]);
+    // Run the code under test.
+    let res = code_under_test();
 
+    // It should succeed.
     assert!(res.is_ok());
 
+    // We have found 1 failpoint in the code under test.
     assert_eq!(1, get_count());
 }
 
 #[test]
-fn test_counter_mode_two() {
-    fn do_something() -> Result<(), Error> {
-        Ok(())
-    }
-
-    start_counter();
-
-    let res = failpoint!(
-        do_something(),
-        [Error::msg("Error 1"), Error::msg("Error 2")]
-    );
-
-    assert!(res.is_ok());
-    assert_eq!(2, get_count());
-}
-
-#[test]
 fn test_trigger_mode() {
-    fn do_something() -> Result<(), Error> {
-        Ok(())
+    // A function to test.
+    fn code_under_test() -> Result<(), Error> {
+        let ret = important_function();
+        let ret = failpoint!(ret, Error::msg("ERROR"), "Fail with \"ERROR\"");
+        ret
     }
 
+    // Run in trigger mode.  Trigger the first failpoint.
     start_trigger(1);
 
-    let res = failpoint!(do_something(), [Error::msg("Error")]);
+    // Run the code under test.
+    let res = code_under_test();
 
+    // The test should have failed.
     assert!(res.is_err());
+
+    // Assert that the message in res is "ERROR"
+    assert_eq!(format!("{}", res.err().unwrap()), "ERROR");
 }
 
 #[test]
 fn test_trigger_mode_two() {
-    fn do_something() -> Result<(), Error> {
-        Ok(())
+    // A function to test.
+    fn code_under_test() -> Result<(), Error> {
+        let ret = important_function();
+        let ret = failpoint!(ret, Error::msg("ERROR"), "Fail with \"ERROR\"");
+        let ret = failpoint!(
+            ret,
+            Error::msg("ANOTHER ERROR"),
+            "Fail with \"ANOTHER ERROR\""
+        );
+
+        ret
     }
 
-    fn do_failpoint() -> Result<(), Error> {
-        failpoint!(
-            do_something(),
-            [Error::msg("Error 1"), Error::msg("Error 2")]
-        )
-    }
+    // Run in trigger mode.  Trigger the first failpoint.
+    start_trigger(2);
 
-    start_trigger(3);
+    // Run the code under test.
+    let res = code_under_test();
 
-    let res0 = do_failpoint();
-    assert!(res0.is_ok());
+    // The test should have failed.
+    assert!(res.is_err());
 
-    let res1 = do_failpoint();
-    assert!(res1.is_err());
-
-    assert_eq!(format!("{}", res1.err().unwrap()), "Error 1");
-
-    let res2 = do_failpoint();
-    assert!(res2.is_err());
-
-    assert_eq!(format!("{}", res2.err().unwrap()), "Error 2");
+    // Assert that the message in res is "ERROR"
+    assert_eq!(format!("{}", res.err().unwrap()), "ANOTHER ERROR");
 }
 
 #[test]
 fn test_test_codepath() {
-    fn do_something() -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn do_failpoint() -> Result<(), Error> {
-        failpoint!(do_something(), [Error::msg("Error 1")])
+    fn code_under_test() -> Result<(), Error> {
+        let ret = important_function();
+        let ret = failpoint!(ret, Error::msg("ERROR"), "Fail with \"ERROR\"");
+        ret
     }
 
     let res = test_codepath! {
-            do_failpoint()
+        code_under_test()
     };
 
     assert!(res.success());
@@ -102,10 +114,9 @@ fn test_test_codepath() {
     assert!(res.unexpected_result.is_none());
 }
 
-
+#[rustfmt::skip]
 #[test]
 fn test_test_codepath_two() {
-
     set_verbosity(2);
 
     let log_collector = TestLogCollector::new_shared();
@@ -118,28 +129,25 @@ fn test_test_codepath_two() {
 
     set_logger(Some(logger));
 
-    fn do_something() -> Result<(), Error> {
-        Ok(())
-    }
-
     fn do_failpoint1() -> Result<(), Error> {
-        failpoint!(do_something(), "Once", [Error::msg("Error 1")])
+	let ret = important_function();
+        let ret = failpoint!(ret, Error::msg("Error 1"), "Once");
+	ret
     }
 
     fn do_failpoint2() -> Result<(), Error> {
-        failpoint!(do_something(), "Twice", [Error::msg("Error 2")])
+	let ret = important_function();
+        let ret = failpoint!(ret, Error::msg("Error 2"), "Twice");
+	ret
+    }
+
+    fn code_under_test() -> Result<(), Error> {
+        let res1 = do_failpoint1();
+        if res1.is_err() { res1 } else { do_failpoint2() }
     }
 
     let res = test_codepath! {
-	{
-	    let res1 = do_failpoint1();
-	    if res1.is_err() {
-		res1
-	    } else {
-		do_failpoint2()
-	    }
-	}
-
+	code_under_test()
     };
 
     assert!(res.success());
@@ -155,32 +163,35 @@ fn test_test_codepath_two() {
 
     let messages = collector.clone_lines();
     // You can also check for specific messages
-    let has_trigger_msg = messages.iter().any(|msg| msg.contains("Triggered failpoint"));
+    let has_trigger_msg = messages
+        .iter()
+        .any(|msg| msg.contains("Triggered failpoint"));
     assert!(has_trigger_msg, "Expected a trigger message in logs");
 
     set_verbosity(0);
     set_logger(None);
 }
 
+#[rustfmt::skip]
 #[test]
 fn test_test_codepath_before() {
     let mut before_ran = false;
-    fn do_something() -> Result<(), Error> {
-        Ok(())
-    }
 
-    fn do_failpoint() -> Result<(), Error> {
-        failpoint!(do_something(), [Error::msg("Error 1")])
+    fn code_under_test() -> Result<(), Error> {
+	let ret = important_function();
+        let ret = failpoint!(ret, Error::msg("Error 1"), "Fail with \"ERROR 1\"");
+	ret
     }
 
     let res = test_codepath! {
 	{
-	    before_ran = true;
+            before_ran = true;
 	};
 	{
-            do_failpoint()
+            code_under_test()
 	};
 	{
+	    // No after
 	}
     };
 
@@ -193,23 +204,22 @@ fn test_test_codepath_before() {
     assert!(before_ran);
 }
 
+#[rustfmt::skip]
 #[test]
 fn test_test_codepath_after() {
     let mut after_ran = false;
-    fn do_something() -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn do_failpoint() -> Result<(), Error> {
-        failpoint!(do_something(), [Error::msg("Error 1")])
+    fn code_under_test() -> Result<(), Error> {
+	let ret = important_function();
+        let ret = failpoint!(ret, Error::msg("Error 1"), "Fail with \"ERROR 1\"");
+	ret
     }
 
     let res = test_codepath! {
 	{
-            do_failpoint()
+            code_under_test()
 	};
 	{
-	    after_ran = true;
+            after_ran = true;
 	}
     };
 
@@ -227,24 +237,22 @@ fn test_test_codepath_before_and_after() {
     let mut before_ran = false;
     let mut after_ran = false;
 
-    fn do_something() -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn do_failpoint() -> Result<(), Error> {
-        failpoint!(do_something(), [Error::msg("Error 1")])
+    fn code_under_test() -> Result<(), Error> {
+        let ret = important_function();
+        let ret = failpoint!(ret, Error::msg("Error 1"), "Fail with \"ERROR 1\"");
+        ret
     }
 
     let res = test_codepath! {
-	{
-	    before_ran = true;
-	};
-	{
-            do_failpoint()
-	};
-	{
-	    after_ran = true;
-	}
+    {
+        before_ran = true;
+    };
+    {
+        code_under_test()
+    };
+    {
+        after_ran = true;
+    }
     };
 
     assert!(res.success());
@@ -259,17 +267,14 @@ fn test_test_codepath_before_and_after() {
 
 #[test]
 fn test_test_codepath_codepath_does_not_fail() {
-    fn do_something() -> Result<(), Error> {
+    fn code_under_test() -> Result<(), Error> {
+        let ret = important_function();
+        _ = failpoint!(ret, Error::msg("Error 1"), "Fail with \"ERROR 1\"");
         Ok(())
     }
 
-    fn do_failpoint() -> Result<(), Error> {
-        _ = failpoint!(do_something(), [Error::msg("Error 1")]);
-	Ok(())
-    }
-
     let res = test_codepath! {
-            do_failpoint()
+        code_under_test()
     };
 
     assert!(!res.success());

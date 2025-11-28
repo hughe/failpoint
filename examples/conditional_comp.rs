@@ -1,4 +1,16 @@
 /// Check everything works if the library is disabled.
+///
+/// Run like this to test with failpoints enabled:
+///
+/// ```shell
+/// cargo run --example conditional_comp
+/// ```
+///
+/// And like this to test with failpoints disabled.
+///
+/// ```shell
+/// cargo run --example conditional_comp --no-default-features
+/// ```
 use anyhow;
 
 use failpoint::{failpoint, get_count, is_enabled, start_counter};
@@ -7,30 +19,28 @@ fn do_something_important() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn do_something_else() -> Result<(), anyhow::Error> {
-    let res = failpoint!(do_something_important(), [anyhow::Error::msg("Error 1")])?;
+fn code_under_test() -> Result<(), anyhow::Error> {
+    let res = do_something_important();
+    let res = failpoint!(res, anyhow::Error::msg("Error 1"));
 
-    _ = res;
-
-    Ok(())
+    res
 }
 
 fn main() {
     if is_enabled() {
-	println!("failpoint! is enabled");
+        println!("failpoint! is enabled");
     } else {
-	println!("failpoint! is disabled");
+        println!("failpoint! is disabled");
     }
     start_counter();
 
-    let res = do_something_else();
+    let res = code_under_test();
 
     assert!(res.is_ok());
 
     if is_enabled() {
-	assert_eq!(1, get_count());
+        assert_eq!(1, get_count());
     } else {
-	assert_eq!(0, get_count());
+        assert_eq!(0, get_count());
     }
-
 }
