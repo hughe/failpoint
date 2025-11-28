@@ -18,4 +18,4 @@ failpoint_enabled = []
 [dev-dependencies]
 anyhow = "1.0.99"
 thiserror = "2.0.17"
-test_log_collector = { path = "../test_log_collector" }
+test_log_collector = { git = "https://github.com/hughe/test_log_collector", version = "1.0.0" }

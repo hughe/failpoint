@@ -48,7 +48,8 @@ dependencies = [
 
 [[package]]
 name = "test_log_collector"
-version = "0.1.0"
+version = "1.1.0"
+source = "git+https://github.com/hughe/test_log_collector#746dbe2fd116d691a8fa7f657b52a98e3f879f78"
 
 [[package]]
 name = "thiserror"
