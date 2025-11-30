@@ -1,6 +1,6 @@
 [package]
 name = "failpoint"
-version = "2.1.0"
+version = "2.1.1"
 edition = "2021"
 authors = ["Hugh Emberson <hugh_emberson@gmail.com>"]
 description = "Simple fault injection"

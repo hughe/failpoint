@@ -163,9 +163,9 @@ impl Inner {
             if let Some(ref log) = self.logger {
                 let loc = self.format_loc(crate_name, file_name, line_no);
                 let msg = if let Some(d) = desc {
-                    format!("Triggered failpoint \"{d}\" at {loc} returning {error:?}")
+                    format!("Triggered failpoint \"{d}\" at {loc} injecting Err({error:?})")
                 } else {
-                    format!("Triggered failpoint at {loc} returning {error:?}")
+                    format!("Triggered failpoint at {loc} injecting Err({error:?})")
                 };
                 log(msg);
             }
@@ -184,9 +184,9 @@ impl Inner {
             if let Some(ref log) = self.logger {
                 let loc = self.format_loc(crate_name, file_name, line_no);
                 let msg = if let Some(d) = desc {
-                    format!("Unexpected error in failpoint \"{d}\" at {loc} got {error:?}")
+                    format!("Unexpected error in failpoint \"{d}\" at {loc} got Err({error:?})")
                 } else {
-                    format!("Unexpected error in failpoint at {loc} got {error:?}")
+                    format!("Unexpected error in failpoint at {loc} got Err({error:?})")
                 };
                 log(msg);
             }
@@ -200,7 +200,7 @@ impl Inner {
         line_no: u32,
     ) -> String {
         if let Some(c) = crate_name {
-            format!("{file_name}:{line_no} in {c}")
+            format!("{file_name}:{line_no} in crate {c}")
         } else {
             format!("{file_name}:{line_no}")
         }

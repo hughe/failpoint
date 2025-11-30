@@ -89,8 +89,9 @@ macro_rules! failpoint {
                 g.trigger -= 1;
                 if g.trigger == 0 {
 		    if res_.is_err() {
-			let debug_res_: &dyn std::fmt::Debug = &res_;
-                        g.report_unexpected_failure(CRATE_NAME, file!(), line!(), $desc_opt, debug_res_);
+			let unexp_err_ = res_.unwrap_err();
+			let debug_unexp_err_: &dyn std::fmt::Debug = &unexp_err_;
+                        g.report_unexpected_failure(CRATE_NAME, file!(), line!(), $desc_opt, debug_unexp_err_);
 		    }
 		    let err_ = $err;
 		    let debug_err_: &dyn std::fmt::Debug = &err_;
