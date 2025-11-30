@@ -1,14 +1,14 @@
 /// Injects a failpoint into code for testing error conditions.
 ///
 /// The `failpoint!` macro takes an identifier (usually the result of
-/// a function call) that returns a `Result<T, E>` and provides a
+/// a function call) that returns a `Result<T, E> where E: Error` and provides a
 /// mechanism to inject errors during testing. The macro also takes an
 /// error value that can be returned instead of the original result.
 ///
 /// # Arguments
 ///
 /// * `$res` - An identifier that has the type `Result<T, E>`
-/// * `$err` - An error expression of type `E`
+/// * `$err` - An error expression of type `E`.  `E` must implement `std::fmt::Error`.
 /// * `$desc` - An optional description string for logging
 ///
 /// # Modes
@@ -88,13 +88,14 @@ macro_rules! failpoint {
             } else {
                 g.trigger -= 1;
                 if g.trigger == 0 {
-                    if res_.is_ok() {
-                        g.report_trigger(CRATE_NAME, file!(), line!(), $desc_opt, 2);
-                        Err($err)
-                    } else {
-                        g.report_unexpected_failure(CRATE_NAME, file!(), line!(), $desc_opt);
-                        res_
-                    }
+		    if res_.is_err() {
+			let debug_res_: &dyn std::fmt::Debug = &res_;
+                        g.report_unexpected_failure(CRATE_NAME, file!(), line!(), $desc_opt, debug_res_);
+		    }
+		    let err_ = $err;
+		    let debug_err_: &dyn std::fmt::Debug = &err_;
+                    g.report_trigger(CRATE_NAME, file!(), line!(), $desc_opt, debug_err_);
+                    Err(err_)
                 } else {
                     res_
                 }

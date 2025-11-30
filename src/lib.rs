@@ -88,6 +88,8 @@
 //! # }
 //! ```
 
+use std::fmt::Debug;
+
 mod codepath_macros;
 mod failpoint_macros;
 
@@ -155,15 +157,15 @@ impl Inner {
         file_name: &'static str,
         line_no: u32,
         desc: Option<&'static str>,
-        err_no: usize,
+        error: &dyn Debug,
     ) {
         if self.verbosity >= 1 {
             if let Some(ref log) = self.logger {
-                let loc = self.format_loc(crate_name, file_name, line_no, err_no);
+                let loc = self.format_loc(crate_name, file_name, line_no);
                 let msg = if let Some(d) = desc {
-                    format!("Triggered failpoint \"{d}\" at {loc}")
+                    format!("Triggered failpoint \"{d}\" at {loc} returning {error:?}")
                 } else {
-                    format!("Triggered failpoint at {loc}")
+                    format!("Triggered failpoint at {loc} returning {error:?}")
                 };
                 log(msg);
             }
@@ -176,14 +178,15 @@ impl Inner {
         file_name: &'static str,
         line_no: u32,
         desc: Option<&'static str>,
+        error: &dyn Debug,
     ) {
         if self.verbosity >= 1 {
             if let Some(ref log) = self.logger {
-                let loc = self.format_loc(crate_name, file_name, line_no, 1);
+                let loc = self.format_loc(crate_name, file_name, line_no);
                 let msg = if let Some(d) = desc {
-                    format!("Unexpected error in failpoint \"{d}\" at {loc}")
+                    format!("Unexpected error in failpoint \"{d}\" at {loc} got {error:?}")
                 } else {
-                    format!("Unexpected error in failpoint at {loc}")
+                    format!("Unexpected error in failpoint at {loc} got {error:?}")
                 };
                 log(msg);
             }
@@ -195,12 +198,11 @@ impl Inner {
         crate_name: Option<&'static str>,
         file_name: &'static str,
         line_no: u32,
-        err_no: usize,
     ) -> String {
         if let Some(c) = crate_name {
-            format!("{file_name}:{line_no} error {err_no} in {c}")
+            format!("{file_name}:{line_no} in {c}")
         } else {
-            format!("{file_name}:{line_no} error {err_no}")
+            format!("{file_name}:{line_no}")
         }
     }
 }
