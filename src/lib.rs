@@ -89,43 +89,16 @@
 //! ```
 
 mod codepath_macros;
+mod codepath_state;
 mod failpoint_macros;
 mod failpoint_state;
 
 // Re-export public API from failpoint_state
 pub use failpoint_state::{
-    is_enabled,
-    Logger,
-    get_count,
-    set_logger,
-    set_verbosity,
-    start_counter,
-    start_trigger,
+    get_count, is_enabled, set_logger, set_verbosity, start_counter, start_trigger, Logger,
 };
 
 #[cfg(feature = "failpoint_enabled")]
-pub use failpoint_state::{
-    get_state,
-    lock_state,
-    log_if_verbose,
-    Inner,
-    Mode,
-    State,
-};
+pub use failpoint_state::{get_state, lock_state, log_if_verbose, Inner, Mode, State};
 
-#[cfg(not(feature = "failpoint_enabled"))]
-#[doc(hidden)]
-#[inline]
-pub fn log_if_verbose(_level: i32, _msg: String) {}
-
-pub struct CodePathResult<T, E> {
-    pub expected_trigger_count: i64,
-    pub trigger_count: i64,
-    pub unexpected_result: Option<Result<T, E>>,
-}
-
-impl<T, E> CodePathResult<T, E> {
-    pub fn success(&self) -> bool {
-        self.trigger_count == self.expected_trigger_count
-    }
-}
+pub use codepath_state::CodePathResult;
