@@ -28,7 +28,7 @@ pub enum Mode {
     Trigger,
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Verbosity {
     None,
     Moderate,
@@ -76,7 +76,7 @@ pub struct Inner {
     pub trigger: i64,
 
     pub counted_locs: Vec<Location>,
-    pub trigger_locs: Vec<Location>,
+    pub triggered_locs: Vec<Location>,
 }
 
 #[cfg(feature = "failpoint_enabled")]
@@ -92,7 +92,7 @@ impl Default for Inner {
             trigger: i64::MAX,
 
             counted_locs: Vec::new(),
-            trigger_locs: Vec::new(),
+            triggered_locs: Vec::new(),
         }
     }
 }
@@ -122,7 +122,7 @@ impl Inner {
             }
         }
         if self.verbosity >= Verbosity::Extreme {
-            self.trigger_locs.push(loc.clone());
+            self.triggered_locs.push(loc.clone());
         }
     }
 
@@ -199,6 +199,8 @@ pub fn start_counter() {
     let mut g = lock_state();
     g.mode = Mode::Count;
     g.counter = 0;
+    g.counted_locs = Vec::new();
+    g.triggered_locs = Vec::new();
 }
 
 #[cfg(not(feature = "failpoint_enabled"))]
@@ -273,9 +275,36 @@ pub fn get_count() -> i64 {
 }
 
 #[cfg(not(feature = "failpoint_enabled"))]
-#[inline]
 pub fn get_count() -> i64 {
     0
+}
+
+/// Get a list of the locations of the failpoints that were counted
+/// since the last call to `start_counter()` in the order they were
+/// counted.
+#[cfg(feature = "failpoint_enabled")]
+pub fn get_counted_locs() -> Vec<Location> {
+    let g = lock_state();
+    g.counted_locs.clone()
+}
+
+#[cfg(not(feature = "failpoint_enabled"))]
+pub fn get_counted_locs() -> Vec<Location> {
+    Vec::new()
+}
+
+/// Get a list of the locations of the failpoints that were counted
+/// since the last call to `start_counter()` in the order they were
+/// triggered.
+#[cfg(feature = "failpoint_enabled")]
+pub fn get_triggered_locs() -> Vec<Location> {
+    let g = lock_state();
+    g.triggered_locs.clone()
+}
+
+#[cfg(not(feature = "failpoint_enabled"))]
+pub fn get_triggered_locs() -> Vec<Location> {
+    Vec::new()
 }
 
 /// Sets the verbosity level for logging output.
@@ -342,3 +371,7 @@ pub fn log_if_verbose(level: Verbosity, msg: String) {
         }
     }
 }
+
+#[cfg(not(feature = "failpoint_enabled"))]
+#[doc(hidden)]
+pub fn log_if_verbose(_level: Verbosity, _msg: String) {}

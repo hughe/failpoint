@@ -95,11 +95,11 @@ mod failpoint_state;
 
 // Re-export public API from failpoint_state
 pub use failpoint_state::{
-    get_count, is_enabled, set_logger, set_verbosity, start_counter, start_trigger, Location,
-    Logger, Verbosity,
+    get_count, get_counted_locs, get_triggered_locs, is_enabled, log_if_verbose, set_logger,
+    set_verbosity, start_counter, start_trigger, Location, Logger, Verbosity,
 };
 
 #[cfg(feature = "failpoint_enabled")]
-pub use failpoint_state::{get_state, lock_state, log_if_verbose, Inner, Mode, State};
+pub use failpoint_state::{get_state, lock_state, Inner, Mode, State};
 
 pub use codepath_state::CodePathResult;
