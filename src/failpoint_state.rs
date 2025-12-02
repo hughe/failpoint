@@ -28,13 +28,39 @@ pub enum Mode {
     Trigger,
 }
 
+#[derive(Debug, PartialEq, PartialOrd)]
+pub enum Verbosity {
+    None,
+    Moderate,
+    Extreme,
+}
+
+/// A Location where a failpoint is counted or triggered.
 #[derive(Debug, Clone)]
-#[doc(hidden)]
 pub struct Location {
     pub crate_name: Option<&'static str>,
     pub file_name: &'static str,
     pub line_no: u32,
     pub desc: Option<&'static str>,
+}
+
+impl Location {
+    pub fn format(&self) -> String {
+        let file_ref = self.format_file_ref();
+        if let Some(d) = self.desc {
+            format!("Failpoint \"{d}\" at {file_ref}")
+        } else {
+            format!("Failpoint at {file_ref}")
+        }
+    }
+
+    fn format_file_ref(&self) -> String {
+        if let Some(c) = self.crate_name {
+            format!("{}:{} in crate {}", self.file_name, self.line_no, c)
+        } else {
+            format!("{}:{}", self.file_name, self.line_no)
+        }
+    }
 }
 
 #[cfg(feature = "failpoint_enabled")]
@@ -45,9 +71,12 @@ pub struct Inner {
     pub counter: i64,
 
     logger: Option<Logger>,
-    verbosity: i32,
+    verbosity: Verbosity,
 
     pub trigger: i64,
+
+    pub counted_locs: Vec<Location>,
+    pub trigger_locs: Vec<Location>,
 }
 
 #[cfg(feature = "failpoint_enabled")]
@@ -58,49 +87,52 @@ impl Default for Inner {
             counter: 0,
 
             logger: None,
-            verbosity: 1,
+            verbosity: Verbosity::None,
 
             trigger: i64::MAX,
+
+            counted_locs: Vec::new(),
+            trigger_locs: Vec::new(),
         }
     }
 }
 
 #[cfg(feature = "failpoint_enabled")]
 impl Inner {
-    pub fn report_trigger(&mut self, loc: &Location, error: &dyn Debug) {
-        if self.verbosity >= 1 {
+    pub fn report_count(&mut self, loc: &Location) {
+        if self.verbosity >= Verbosity::Moderate {
             if let Some(ref log) = self.logger {
-                let loc_str = self.format_loc(loc);
+                let loc_str = loc.format();
+                let msg = format!("Found {loc_str}");
+                log(msg);
+            }
+        }
+
+        if self.verbosity >= Verbosity::Extreme {
+            self.counted_locs.push(loc.clone());
+        }
+    }
+
+    pub fn report_trigger(&mut self, loc: &Location, error: &dyn Debug) {
+        if self.verbosity >= Verbosity::Moderate {
+            if let Some(ref log) = self.logger {
+                let loc_str = loc.format();
                 let msg = format!("Triggered {loc_str} injecting Err({error:?})");
                 log(msg);
             }
         }
+        if self.verbosity >= Verbosity::Extreme {
+            self.trigger_locs.push(loc.clone());
+        }
     }
 
     pub fn report_unexpected_failure(&mut self, loc: &Location, error: &dyn Debug) {
-        if self.verbosity >= 1 {
+        if self.verbosity >= Verbosity::Moderate {
             if let Some(ref log) = self.logger {
-                let loc_str = self.format_loc(loc);
+                let loc_str = loc.format();
                 let msg = format!("Unexpected error in {loc_str} got Err({error:?})");
                 log(msg);
             }
-        }
-    }
-
-    fn format_loc(&self, loc: &Location) -> String {
-        let file_ref = self.format_file_ref(loc);
-        if let Some(d) = loc.desc {
-            format!("failpoint \"{d}\" at {file_ref}")
-        } else {
-            format!("failpoint at {file_ref}")
-        }
-    }
-
-    fn format_file_ref(&self, loc: &Location) -> String {
-        if let Some(c) = loc.crate_name {
-            format!("{}:{} in crate {}", loc.file_name, loc.line_no, c)
-        } else {
-            format!("{}:{}", loc.file_name, loc.line_no)
         }
     }
 }
@@ -257,11 +289,12 @@ pub fn get_count() -> i64 {
 /// ```rust
 /// use failpoint;
 ///
-/// failpoint::set_verbosity(2); // Enable verbose logging
+/// // Enable recording of the locations triggered.
+/// failpoint::set_verbosity(failpoint::Verbosity::Extreme);
 /// failpoint::set_logger(Some(Box::new(|msg| println!("{}", msg))));
 /// ```
 #[cfg(feature = "failpoint_enabled")]
-pub fn set_verbosity(v: i32) {
+pub fn set_verbosity(v: Verbosity) {
     let mut g = lock_state();
     g.verbosity = v;
 }
@@ -282,7 +315,7 @@ pub fn set_verbosity(_v: i32) {}
 /// use failpoint;
 ///
 /// // Enable logging to stdout
-/// failpoint::set_verbosity(1);
+/// failpoint::set_verbosity(failpoint::Verbosity::Moderate);
 /// failpoint::set_logger(Some(Box::new(|msg| println!("FAILPOINT: {}", msg))));
 ///
 /// // Disable logging
@@ -301,7 +334,7 @@ pub fn set_logger(_l: Option<Logger>) {}
 // See HIDDEN DOC above.
 #[cfg(feature = "failpoint_enabled")]
 #[doc(hidden)]
-pub fn log_if_verbose(level: i32, msg: String) {
+pub fn log_if_verbose(level: Verbosity, msg: String) {
     let g = lock_state();
     if g.verbosity >= level {
         if let Some(ref log_fn) = g.logger {

@@ -117,7 +117,7 @@ fn test_test_codepath() {
 #[rustfmt::skip]
 #[test]
 fn test_test_codepath_two() {
-    failpoint::set_verbosity(2);
+    failpoint::set_verbosity(failpoint::Verbosity::Extreme);
 
     let log_collector = TestLogCollector::new_shared();
     let collector_clone = log_collector.clone();
@@ -165,10 +165,10 @@ fn test_test_codepath_two() {
     // You can also check for specific messages
     let has_trigger_msg = messages
         .iter()
-        .any(|msg| msg.contains("Triggered failpoint"));
+        .any(|msg| msg.contains("Triggered Failpoint"));
     assert!(has_trigger_msg, "Expected a trigger message in logs");
 
-    failpoint::set_verbosity(0);
+    failpoint::set_verbosity(failpoint::Verbosity::None);
     failpoint::set_logger(None);
 }
 

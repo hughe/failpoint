@@ -60,7 +60,8 @@ macro_rules! test_codepath {
 
     { $before: block ; $codepath: expr ; $after: block } => {
 	{
-	    use failpoint::{start_counter, start_trigger, Mode, get_count, CodePathResult};
+	    use failpoint::{start_counter, start_trigger, Mode, get_count, CodePathResult,
+			    Verbosity};
 	    let mut mode = Mode::Count;
 	    let mut trigger_count = 0;
 	    let mut error_count = i64::MAX;
@@ -70,33 +71,33 @@ macro_rules! test_codepath {
 		    break None;
 		}
 
-		test_codepath!(@log 2, "\n------------------------------------------------------------".to_string());
-		test_codepath!(@log 2,
+		test_codepath!(@log Verbosity::Extreme, "\n------------------------------------------------------------".to_string());
+		test_codepath!(@log Verbosity::Extreme,
 			       format!("Testing codepath in {} mode", if mode == Mode::Count { "COUNT" } else { "TRIGGER" }));
 
-		test_codepath!(@log 2, "Running before block".to_string());
+		test_codepath!(@log Verbosity::Extreme, "Running before block".to_string());
 
 		$before;
 
 		if mode == Mode::Count {
 		    start_counter();
-		    test_codepath!(@log 2, "Running codepath in COUNT mode".to_string());
+		    test_codepath!(@log Verbosity::Extreme, "Running codepath in COUNT mode".to_string());
 		} else {
 		    start_trigger(trigger_count);
-		    test_codepath!(@log 2, format!("Running codepath in TRIGGER mode, will trigger error {}", trigger_count));
+		    test_codepath!(@log Verbosity::Extreme, format!("Running codepath in TRIGGER mode, will trigger error {}", trigger_count));
 		}
 
 		let res = $codepath;
 
 		if mode == Mode::Count {
 		    if res.is_err() {
-			test_codepath!(@log 0,
+			test_codepath!(@log Verbosity::None,
 				       "Error returned by codepath in count mode. Expected codepath to succeed.".to_string());
 			break Some(res)
 		    }
 		} else {
 		    if !res.is_err() {
-			test_codepath!(@log 0,
+			test_codepath!(@log Verbosity::None,
 				       format!("Codepath did not fail in trigger mode for error {}.  Expected codepath to fail.",
 					       trigger_count));
 			break Some(res)
@@ -111,12 +112,12 @@ macro_rules! test_codepath {
 		    trigger_count += 1;
 		}
 
-		test_codepath!(@log 1, "Running after block");
+		test_codepath!(@log Verbosity::Moderate, "Running after block");
 
 		$after;
 	    };
 
-	    test_codepath!(@log 1, format!("Triggered {} of {} errors", trigger_count - 1, error_count));
+	    test_codepath!(@log Verbosity::Moderate, format!("Triggered {} of {} errors", trigger_count - 1, error_count));
 
 	    let ret = CodePathResult{
 		expected_trigger_count: error_count,

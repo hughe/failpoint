@@ -48,14 +48,14 @@
 /// ## With description for logging
 ///
 /// ```rust
-/// use failpoint::{failpoint, start_trigger, set_logger, set_verbosity};
+/// use failpoint::{failpoint, start_trigger, set_logger, set_verbosity, Verbosity};
 /// use anyhow::Error;
 ///
 /// fn do_something() -> Result<(), Error> {
 ///     Ok(())
 /// }
 ///
-/// set_verbosity(1);
+/// set_verbosity(Verbosity::Moderate);
 /// set_logger(Some(Box::new(|msg| println!("{}", msg))));
 ///
 /// start_trigger(1);
@@ -82,18 +82,20 @@ macro_rules! failpoint {
             const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
             let mut g = lock_state();
 
+	    let loc_ = failpoint::Location{
+		crate_name: CRATE_NAME,
+		file_name: file!(),
+		line_no: line!(),
+		desc: $desc_opt,
+	    };
+
             if g.mode == Mode::Count {
                 g.counter += 1;
+		g.report_count(&loc_);
                 res_
             } else {
                 g.trigger -= 1;
                 if g.trigger == 0 {
-		    let loc_ = failpoint::Location{
-			crate_name: CRATE_NAME,
-			file_name: file!(),
-			line_no: line!(),
-			desc: $desc_opt,
-		    };
 		    if res_.is_err() {
 			let unexp_err_ = res_.unwrap_err();
 			let debug_unexp_err_: &dyn std::fmt::Debug = &unexp_err_;
