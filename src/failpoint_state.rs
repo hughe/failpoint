@@ -28,10 +28,19 @@ pub enum Mode {
     Trigger,
 }
 
+/// How verbose to be and how much information to collect while
+/// running.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Verbosity {
+    /// Don't log anything.
     None,
+
+    /// Log each fail point as it is counted or triggered.
     Moderate,
+
+    /// Record the failpoints that are counted and triggered so they
+    /// can be reported after the fact.  See `get_counted_locs()`,
+    /// `get_triggered_locs()`, and `CodePathResult::report()`.
     Extreme,
 }
 

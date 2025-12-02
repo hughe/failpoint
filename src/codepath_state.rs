@@ -20,6 +20,12 @@ where
     T: Debug,
     E: Debug,
 {
+    /// Writes a report to the logger if it is configured and the
+    /// verbosity level is greater than or equal to
+    /// `Verbosity::Moderate`.  If the verbosity level is greater than
+    /// or equal to `Verbosity::Moderate` then the failpoints will be
+    /// listed in the order they were counted and in the order they
+    /// were triggered.
     pub fn report(&self, name: &str) {
         use Verbosity;
 
