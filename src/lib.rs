@@ -95,7 +95,8 @@ mod failpoint_state;
 
 // Re-export public API from failpoint_state
 pub use failpoint_state::{
-    get_count, is_enabled, set_logger, set_verbosity, start_counter, start_trigger, Logger,
+    get_count, is_enabled, set_logger, set_verbosity, start_counter, start_trigger, Location,
+    Logger,
 };
 
 #[cfg(feature = "failpoint_enabled")]

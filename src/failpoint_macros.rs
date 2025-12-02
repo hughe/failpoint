@@ -88,14 +88,20 @@ macro_rules! failpoint {
             } else {
                 g.trigger -= 1;
                 if g.trigger == 0 {
+		    let loc_ = failpoint::Location{
+			crate_name: CRATE_NAME,
+			file_name: file!(),
+			line_no: line!(),
+			desc: $desc_opt,
+		    };
 		    if res_.is_err() {
 			let unexp_err_ = res_.unwrap_err();
 			let debug_unexp_err_: &dyn std::fmt::Debug = &unexp_err_;
-                        g.report_unexpected_failure(CRATE_NAME, file!(), line!(), $desc_opt, debug_unexp_err_);
+                        g.report_unexpected_failure(&loc_, debug_unexp_err_);
 		    }
 		    let err_ = $err;
 		    let debug_err_: &dyn std::fmt::Debug = &err_;
-                    g.report_trigger(CRATE_NAME, file!(), line!(), $desc_opt, debug_err_);
+                    g.report_trigger(&loc_, debug_err_);
                     Err(err_)
                 } else {
                     res_

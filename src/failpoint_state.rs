@@ -28,6 +28,15 @@ pub enum Mode {
     Trigger,
 }
 
+#[derive(Debug, Clone)]
+#[doc(hidden)]
+pub struct Location {
+    pub crate_name: Option<&'static str>,
+    pub file_name: &'static str,
+    pub line_no: u32,
+    pub desc: Option<&'static str>,
+}
+
 #[cfg(feature = "failpoint_enabled")]
 #[doc(hidden)]
 pub struct Inner {
@@ -58,58 +67,40 @@ impl Default for Inner {
 
 #[cfg(feature = "failpoint_enabled")]
 impl Inner {
-    pub fn report_trigger(
-        &mut self,
-        crate_name: Option<&'static str>,
-        file_name: &'static str,
-        line_no: u32,
-        desc: Option<&'static str>,
-        error: &dyn Debug,
-    ) {
+    pub fn report_trigger(&mut self, loc: &Location, error: &dyn Debug) {
         if self.verbosity >= 1 {
             if let Some(ref log) = self.logger {
-                let loc = self.format_loc(crate_name, file_name, line_no);
-                let msg = if let Some(d) = desc {
-                    format!("Triggered failpoint \"{d}\" at {loc} injecting Err({error:?})")
-                } else {
-                    format!("Triggered failpoint at {loc} injecting Err({error:?})")
-                };
+                let loc_str = self.format_loc(loc);
+                let msg = format!("Triggered {loc_str} injecting Err({error:?})");
                 log(msg);
             }
         }
     }
 
-    pub fn report_unexpected_failure(
-        &mut self,
-        crate_name: Option<&'static str>,
-        file_name: &'static str,
-        line_no: u32,
-        desc: Option<&'static str>,
-        error: &dyn Debug,
-    ) {
+    pub fn report_unexpected_failure(&mut self, loc: &Location, error: &dyn Debug) {
         if self.verbosity >= 1 {
             if let Some(ref log) = self.logger {
-                let loc = self.format_loc(crate_name, file_name, line_no);
-                let msg = if let Some(d) = desc {
-                    format!("Unexpected error in failpoint \"{d}\" at {loc} got Err({error:?})")
-                } else {
-                    format!("Unexpected error in failpoint at {loc} got Err({error:?})")
-                };
+                let loc_str = self.format_loc(loc);
+                let msg = format!("Unexpected error in {loc_str} got Err({error:?})");
                 log(msg);
             }
         }
     }
 
-    fn format_loc(
-        &self,
-        crate_name: Option<&'static str>,
-        file_name: &'static str,
-        line_no: u32,
-    ) -> String {
-        if let Some(c) = crate_name {
-            format!("{file_name}:{line_no} in crate {c}")
+    fn format_loc(&self, loc: &Location) -> String {
+        let file_ref = self.format_file_ref(loc);
+        if let Some(d) = loc.desc {
+            format!("failpoint \"{d}\" at {file_ref}")
         } else {
-            format!("{file_name}:{line_no}")
+            format!("failpoint at {file_ref}")
+        }
+    }
+
+    fn format_file_ref(&self, loc: &Location) -> String {
+        if let Some(c) = loc.crate_name {
+            format!("{}:{} in crate {}", loc.file_name, loc.line_no, c)
+        } else {
+            format!("{}:{}", loc.file_name, loc.line_no)
         }
     }
 }
