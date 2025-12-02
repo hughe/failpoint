@@ -95,6 +95,7 @@ fn test_trigger_mode_two() {
     assert_eq!(format!("{}", res.err().unwrap()), "ANOTHER ERROR");
 }
 
+#[rustfmt::skip]
 #[test]
 fn test_test_codepath() {
     fn code_under_test() -> Result<(), Error> {
@@ -104,7 +105,9 @@ fn test_test_codepath() {
     }
 
     let res = test_codepath! {
-        code_under_test()
+        codepath {
+            code_under_test()
+	}
     };
 
     assert!(res.success());
@@ -147,7 +150,9 @@ fn test_test_codepath_two() {
     }
 
     let res = test_codepath! {
-	code_under_test()
+	codepath {
+	    code_under_test()
+	}
     };
 
     assert!(res.success());
@@ -184,13 +189,13 @@ fn test_test_codepath_before() {
     }
 
     let res = test_codepath! {
-	{
+	before {
             before_ran = true;
 	};
-	{
+	codepath {
             code_under_test()
 	};
-	{
+	after {
 	    // No after
 	}
     };
@@ -215,10 +220,10 @@ fn test_test_codepath_after() {
     }
 
     let res = test_codepath! {
-	{
+	codepath {
             code_under_test()
 	};
-	{
+	after{
             after_ran = true;
 	}
     };
@@ -232,6 +237,7 @@ fn test_test_codepath_after() {
     assert!(after_ran);
 }
 
+#[rustfmt::skip]
 #[test]
 fn test_test_codepath_before_and_after() {
     let mut before_ran = false;
@@ -244,15 +250,15 @@ fn test_test_codepath_before_and_after() {
     }
 
     let res = test_codepath! {
-    {
-        before_ran = true;
-    };
-    {
-        code_under_test()
-    };
-    {
-        after_ran = true;
-    }
+	before {
+            before_ran = true;
+	};
+	codepath {
+            code_under_test()
+	};
+	after {
+            after_ran = true;
+	}
     };
 
     assert!(res.success());
@@ -265,6 +271,7 @@ fn test_test_codepath_before_and_after() {
     assert!(after_ran);
 }
 
+#[rustfmt::skip]
 #[test]
 fn test_test_codepath_codepath_does_not_fail() {
     fn code_under_test() -> Result<(), Error> {
@@ -274,7 +281,9 @@ fn test_test_codepath_codepath_does_not_fail() {
     }
 
     let res = test_codepath! {
-        code_under_test()
+        codepath {
+            code_under_test()
+	}
     };
 
     assert!(!res.success());

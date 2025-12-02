@@ -62,9 +62,14 @@ fn load_file() -> Result<(), MyError> {
     Ok(())
 }
 
+#[rustfmt::skip]
 fn main() {
     // Find and excercise all the errors in `do_all_the_things()`.
-    let res = test_codepath!(load_file());
+    let res = test_codepath!{
+	codepath {
+	    load_file()
+	}
+    };
 
     assert!(res.success());
     assert_eq!(2, res.expected_trigger_count);

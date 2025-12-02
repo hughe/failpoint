@@ -127,11 +127,16 @@ fn do_all_the_things() -> Result<(), ExampleError> {
 
 fn main() {
     // Find and excercise all the errors in `do_all_the_things()`.
-    let res = test_codepath!(do_all_the_things());
+    let res = test_codepath!{
+	    codepath {
+		    do_all_the_things()
+		};
+	};
 
     // If we encounter an unexpected result, then this assert will
     // fail.
     assert!(res.success());
+	res.report("main");
 }
 ```
 

@@ -32,14 +32,14 @@
 /// }
 ///
 /// let result = test_codepath!(
-///     {
+///     before {
 ///         // Setup: runs before each iteration
 ///     };
-///     {
+///     codepath {
 ///         // Code path to test
 ///         process_data()
 ///     };
-///     {
+///     after {
 ///         // Cleanup: runs after each iteration
 ///     }
 /// );
@@ -58,7 +58,7 @@ macro_rules! test_codepath {
 	}
     };
 
-    { $before: block ; $codepath: expr ; $after: block } => {
+    { before $before: block ; codepath $codepath: expr ; after $after: block } => {
 	{
 	    use failpoint::{start_counter, start_trigger, Mode, get_count, CodePathResult,
 			    Verbosity, set_active, ActiveGuard};
@@ -144,12 +144,32 @@ macro_rules! test_codepath {
 	}
     };
 
-    { $codepath: expr ; $after: block } => {
-	test_codepath!{ {}; $codepath; $after }
+    { before $before: block ; codepath $codepath: expr ; after $after: block ; } => {
+	test_codepath!{ before $before; codepath $codepath; after $after }
     };
 
-    { $codepath: expr } => {
-	test_codepath!{ {}; $codepath; {} }
+    { codepath $codepath: expr ; after $after: block } => {
+	test_codepath!{ before {}; codepath $codepath; after $after }
+    };
+
+    { codepath $codepath: expr ; after $after: block ; } => {
+	test_codepath!{ codepath $codepath; after $after }
+    };
+
+    { before $before: block; codepath $codepath: expr } => {
+	test_codepath!{ before $before; codepath $codepath; after {} }
+    };
+
+    { before $before: block; codepath $codepath: expr ; } => {
+	test_codepath!{ before $before; codepath $codepath }
+    };
+
+    { codepath $codepath: expr } => {
+	test_codepath!{ before {}; codepath $codepath; after {} }
+    };
+
+    { codepath $codepath: expr } => {
+	test_codepath!{ codepath $codepath ; }
     };
 
 }
@@ -157,7 +177,7 @@ macro_rules! test_codepath {
 #[cfg(not(feature = "failpoint_enabled"))]
 #[macro_export]
 macro_rules! test_codepath {
-    { $before: block ; $codepath: expr ; $after: block } => {{
+    { before $before: block ; codepath $codepath: expr ; after $after: block } => {{
         use failpoint::CodePathResult;
         $before;
         let res = $codepath;
@@ -169,11 +189,11 @@ macro_rules! test_codepath {
         }
     }};
 
-    { $codepath: expr ; $after: block } => {
-        test_codepath!{ {}; $codepath; $after }
+    { codepath $codepath: expr ; after $after: block } => {
+        test_codepath!{ before {}; codepath $codepath; after $after }
     };
 
-    { $codepath: expr } => {
-        test_codepath!{ {}; $codepath; {} }
+    { codepath $codepath: expr } => {
+        test_codepath!{ before {}; codepath $codepath; after {} }
     };
 }

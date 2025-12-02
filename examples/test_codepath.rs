@@ -47,11 +47,16 @@ fn do_all_the_things() -> Result<(), ExampleError> {
     Ok(())
 }
 
+#[rustfmt::skip]
 fn main() {
     failpoint::set_logger(Some(Box::new(|m| println!("{}", m))));
     failpoint::set_verbosity(failpoint::Verbosity::Extreme);
-    // Find and excercise all the errors in `do_all_the_things()`.
-    let res = test_codepath!(do_all_the_things());
+    // Find and exercise all the errors in `do_all_the_things()`.
+    let res = test_codepath! {
+	codepath {
+            do_all_the_things()
+	}
+    };
 
     // If we encounter an unexpected result, then this assert will
     // fail.
