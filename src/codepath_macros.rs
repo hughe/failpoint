@@ -61,7 +61,7 @@ macro_rules! test_codepath {
     { $before: block ; $codepath: expr ; $after: block } => {
 	{
 	    use failpoint::{start_counter, start_trigger, Mode, get_count, CodePathResult,
-			    Verbosity};
+			    Verbosity, set_active, ActiveGuard};
 	    let mut mode = Mode::Count;
 	    let mut trigger_count = 0;
 	    let mut error_count = i64::MAX;
@@ -76,8 +76,15 @@ macro_rules! test_codepath {
 			       format!("Testing codepath in {} mode", if mode == Mode::Count { "COUNT" } else { "TRIGGER" }));
 
 		test_codepath!(@log Verbosity::Extreme, "Running before block".to_string());
+		{
+		    let act_gaurd_ = ActiveGuard::new(false);
 
-		$before;
+		    {
+			$before;
+		    }
+
+		    drop(act_gaurd_);
+		}
 
 		if mode == Mode::Count {
 		    start_counter();
@@ -114,7 +121,15 @@ macro_rules! test_codepath {
 
 		test_codepath!(@log Verbosity::Moderate, "Running after block");
 
-		$after;
+		{
+		    let act_gaurd_ = ActiveGuard::new(false);
+
+		    {
+			$after;
+		    }
+
+		    drop(act_gaurd_);
+		}
 	    };
 
 	    test_codepath!(@log Verbosity::Moderate, format!("Triggered {} of {} errors", trigger_count - 1, error_count));

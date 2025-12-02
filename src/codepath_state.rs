@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use crate::failpoint_state::{get_counted_locs, get_triggered_locs};
-use crate::{log_if_verbose, Verbosity};
+use crate::{Verbosity, log_if_verbose};
 
 pub struct CodePathResult<T, E> {
     pub expected_trigger_count: i64,

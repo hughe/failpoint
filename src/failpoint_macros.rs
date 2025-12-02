@@ -76,40 +76,43 @@ macro_rules! failpoint {
 
     (@internal $res: ident, $err: expr, $desc_opt: expr) => {{
         {
+            const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
             let res_ = $res;
 
             use failpoint::{Mode, lock_state};
-            const CRATE_NAME: Option<&'static str> = core::option_env!("CARGO_CRATE_NAME");
             let mut g = lock_state();
+	    if g.active {
+		let loc_ = failpoint::Location{
+		    crate_name: CRATE_NAME,
+		    file_name: file!(),
+		    line_no: line!(),
+		    desc: $desc_opt,
+		};
 
-	    let loc_ = failpoint::Location{
-		crate_name: CRATE_NAME,
-		file_name: file!(),
-		line_no: line!(),
-		desc: $desc_opt,
-	    };
-
-            if g.mode == Mode::Count {
-                g.counter += 1;
-		g.report_count(&loc_);
-                res_
-            } else {
-                g.trigger -= 1;
-                if g.trigger == 0 {
-		    if res_.is_err() {
-			let unexp_err_ = res_.unwrap_err();
-			let debug_unexp_err_: &dyn std::fmt::Debug = &unexp_err_;
-                        g.report_unexpected_failure(&loc_, debug_unexp_err_);
-		    }
-		    let err_ = $err;
-		    let debug_err_: &dyn std::fmt::Debug = &err_;
-                    g.report_trigger(&loc_, debug_err_);
-                    Err(err_)
-                } else {
+		if g.mode == Mode::Count {
+                    g.counter += 1;
+		    g.report_count(&loc_);
                     res_
-                }
-            }
-        }
+		} else {
+                    g.trigger -= 1;
+                    if g.trigger == 0 {
+			if res_.is_err() {
+			    let unexp_err_ = res_.unwrap_err();
+			    let debug_unexp_err_: &dyn std::fmt::Debug = &unexp_err_;
+                            g.report_unexpected_failure(&loc_, debug_unexp_err_);
+			}
+			let err_ = $err;
+			let debug_err_: &dyn std::fmt::Debug = &err_;
+			g.report_trigger(&loc_, debug_err_);
+			Err(err_)
+                    } else {
+			res_
+                    }
+		}
+            } else {
+		res_
+	    }
+	}
     }};
 }
 

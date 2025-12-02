@@ -75,6 +75,8 @@ impl Location {
 #[cfg(feature = "failpoint_enabled")]
 #[doc(hidden)]
 pub struct Inner {
+    pub active: bool,
+
     pub mode: Mode,
 
     pub counter: i64,
@@ -92,6 +94,7 @@ pub struct Inner {
 impl Default for Inner {
     fn default() -> Self {
         Self {
+            active: true,
             mode: Mode::Count,
             counter: 0,
 
@@ -179,6 +182,52 @@ pub fn lock_state<'a>() -> MutexGuard<'a, Inner> {
     let state = get_state();
     let g = state.mu.lock().unwrap();
     g
+}
+
+#[cfg(feature = "failpoint_enabled")]
+#[doc(hidden)]
+pub fn is_active() -> bool {
+    let g = lock_state();
+    g.active
+}
+
+#[cfg(not(feature = "failpoint_enabled"))]
+#[doc(hidden)]
+pub fn is_active() -> bool {
+    false
+}
+
+#[cfg(feature = "failpoint_enabled")]
+#[doc(hidden)]
+pub fn set_active(b: bool) {
+    let mut g = lock_state();
+    g.active = b
+}
+
+#[cfg(not(feature = "failpoint_enabled"))]
+#[doc(hidden)]
+pub fn set_active(_b: bool) {}
+
+// RAII guard for active.
+#[doc(hidden)]
+pub struct ActiveGuard {
+    was_active: bool,
+}
+
+impl ActiveGuard {
+    pub fn new(b: bool) -> Self {
+        let ret = Self {
+            was_active: is_active(),
+        };
+        set_active(b);
+        ret
+    }
+}
+
+impl Drop for ActiveGuard {
+    fn drop(&mut self) {
+        set_active(self.was_active);
+    }
 }
 
 /// Enters count mode and resets the failpoint counter to zero.
