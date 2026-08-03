@@ -1,0 +1,37 @@
+# Auto-deployed to this mirror by sldbmono's sync (git-subrepo).
+# On push to this repo's main (e.g. an outside PR merged), it pings
+# sldbmono to run a sync tick so the import opens promptly instead of
+# waiting for the hourly cron.
+#
+# Requires secret SLDBMONO_DISPATCH_TOKEN in THIS repo: a token that can
+# send repository_dispatch to hughe/sldbmono (Contents: write on
+# hughe/sldbmono). Until it's set, this workflow no-ops.
+#
+# Note: sldbmono's own export push to this repo also fires this workflow;
+# the resulting tick finds the mirror in sync and no-ops. No loop.
+name: notify-sldbmono
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch a sync tick to sldbmono
+        env:
+          TOKEN: ${{ secrets.SLDBMONO_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "SLDBMONO_DISPATCH_TOKEN not set — notify disabled; skipping."
+            exit 0
+          fi
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/hughe/sldbmono/dispatches \
+            -d "{\"event_type\":\"mirror-updated\",\"client_payload\":{\"repo\":\"${{ github.event.repository.name }}\",\"sha\":\"${{ github.sha }}\"}}"
