@@ -31,7 +31,7 @@ where
 
         log_if_verbose(
             Verbosity::Moderate,
-            format!("************************************************************************"),
+            "************************************************************************".to_string(),
         );
         log_if_verbose(Verbosity::Moderate, format!("* Codepath:   {name}"));
 
@@ -52,7 +52,7 @@ where
         log_if_verbose(Verbosity::Extreme, "*".to_string());
 
         let counted_locs = get_counted_locs();
-        log_if_verbose(Verbosity::Extreme, format!("* Counted Failpoints: "));
+        log_if_verbose(Verbosity::Extreme, "* Counted Failpoints: ".to_string());
 
         for (i, loc) in counted_locs.iter().enumerate() {
             log_if_verbose(
@@ -63,7 +63,7 @@ where
 
         log_if_verbose(Verbosity::Extreme, "*".to_string());
         let triggered_locs = get_triggered_locs();
-        log_if_verbose(Verbosity::Extreme, format!("* Triggered Failpoints:"));
+        log_if_verbose(Verbosity::Extreme, "* Triggered Failpoints:".to_string());
 
         for (i, loc) in triggered_locs.iter().enumerate() {
             log_if_verbose(
@@ -78,7 +78,7 @@ where
 
         log_if_verbose(
             Verbosity::Moderate,
-            format!("************************************************************************"),
+            "************************************************************************".to_string(),
         );
     }
 }
