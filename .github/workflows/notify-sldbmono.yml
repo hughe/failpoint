@@ -1,4 +1,4 @@
-# Auto-deployed to this mirror by sldbmono's sync (git-subrepo).
+# Auto-deployed to this mirror by sldbmono's josh sync.
 # On push to this repo's main (e.g. an outside PR merged), it pings
 # sldbmono to run a sync tick so the import opens promptly instead of
 # waiting for the hourly cron.
