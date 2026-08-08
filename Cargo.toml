@@ -18,4 +18,12 @@ failpoint_enabled = []
 [dev-dependencies]
 anyhow = "1.0.99"
 thiserror = "2.0.17"
-test_log_collector = { path = "../test_log_collector" }
+# Declared as a git dependency, NOT a path dependency, and that is
+# load-bearing: this crate is exported to the public hughe/failpoint
+# mirror, where no sibling checkout exists and a path dependency makes
+# `cargo build` fail before compiling anything. In the sldbmono monorepo
+# the root .cargo/config.toml patches this back to the tree next door,
+# so local edits are still picked up without a commit-and-push round
+# trip. Changing this to a path dependency breaks the public mirror --
+# it has been done twice now.
+test_log_collector = { git = "https://github.com/hughe/test_log_collector", version = "1.0.0" }
