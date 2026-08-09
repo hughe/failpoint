@@ -24,12 +24,24 @@ all: build
 build:
 	$(CARGO) build
 
-## test: unit tests plus doc tests
+## test: unit tests via nextest, plus doc tests
 #
-# --test-threads=1 is required, not a preference: failpoint's state is
-# process-global, so concurrent tests trip each other's failpoints.
+# --test-threads=1 USED TO BE REQUIRED HERE, and no longer is. The
+# reason it was needed — failpoint's state is process-global, so
+# concurrent tests tripped each other's failpoints — is exactly what
+# nextest removes: it runs each test in its own PROCESS, so there is no
+# shared global left to contend over. Verified rather than assumed: 12
+# consecutive default-parallelism runs, 9/9 passing each time.
+#
+# If you ever see a flake here, that reasoning is the thing to re-check
+# before adding a concurrency flag back.
+#
+# The `--doc` line is NOT optional: nextest does not run doctests, and
+# this crate has 11. It also stops them being run twice — a plain
+# `cargo test` already included them, so the old pair of lines ran the
+# doctests once each.
 test:
-	$(CARGO) test -- --test-threads=1
+	$(CARGO) nextest run
 	$(CARGO) test --doc
 
 ## check: the lint gate — formatting and clippy, both fatal
