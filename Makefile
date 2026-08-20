@@ -102,12 +102,15 @@ help:
 # passed every structural check, and was rejected outright by GitHub
 # with "workflow file issue" and zero jobs.
 ACTIONLINT ?= actionlint
+# See the root Makefile: disabled because actionlint runs these only
+# if they are on PATH, so results would vary by machine.
+ACTIONLINT_FLAGS ?= -shellcheck= -pyflakes=
 ACTIONLINT_FILES := $(wildcard .github/workflows/*.yml)
 
 actionlint:
 ifeq ($(ACTIONLINT_FILES),)
 	@echo "actionlint: no workflows in $(CURDIR) — nothing to do"
 else
-	$(ACTIONLINT) $(ACTIONLINT_FILES)
+	$(ACTIONLINT) $(ACTIONLINT_FLAGS) $(ACTIONLINT_FILES)
 endif
 .PHONY: actionlint
