@@ -85,3 +85,29 @@ clean:
 ## help: list targets
 help:
 	@grep -hE '^## [a-z]' $(MAKEFILE_LIST) | sed 's/^## /  /'
+
+## actionlint: lint this component's GitHub Actions workflows
+#
+# Self-contained on purpose. This file is exported to the component's
+# own repository, where there is no monorepo root Makefile to fall back
+# on, so `make actionlint` has to work standing alone.
+#
+# `wildcard` makes it a no-op rather than an error when there are no
+# workflows here, so the target exists uniformly across every component
+# and the root can call it without knowing which have any.
+#
+# WHY IT EXISTS. GitHub's workflow parser is stricter than YAML and
+# everything below it is silent about the difference: on 2026-08-20 a
+# comment containing the literal expression braces was valid YAML,
+# passed every structural check, and was rejected outright by GitHub
+# with "workflow file issue" and zero jobs.
+ACTIONLINT ?= actionlint
+ACTIONLINT_FILES := $(wildcard .github/workflows/*.yml)
+
+actionlint:
+ifeq ($(ACTIONLINT_FILES),)
+	@echo "actionlint: no workflows in $(CURDIR) — nothing to do"
+else
+	$(ACTIONLINT) $(ACTIONLINT_FILES)
+endif
+.PHONY: actionlint
