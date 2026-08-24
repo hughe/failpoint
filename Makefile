@@ -15,7 +15,7 @@
 
 CARGO ?= cargo
 
-.PHONY: all build test check fmt clippy examples clean help
+.PHONY: all build test check fmt check_fmt clippy examples clean help
 
 ## all: build the library (default)
 all: build
@@ -50,10 +50,18 @@ test:
 # while Cargo.toml declares edition = "2021". That is deliberate: the
 # source is written in the 2024 import style, and without the pin
 # rustfmt applies the 2021 style and rejects the tree.
-check: fmt clippy
+check: check_fmt clippy
 
-## fmt: fail if the tree is not formatted
+## fmt: reformat the tree in place
+#
+# `fmt` REWRITES and `check_fmt` reports, the same way round in every
+# component here. A gate must not edit your working tree, so `check`
+# depends on the reporting one.
 fmt:
+	$(CARGO) fmt
+
+## check_fmt: fail if the tree is not formatted
+check_fmt:
 	$(CARGO) fmt -- --check
 
 ## clippy: fail on any warning
