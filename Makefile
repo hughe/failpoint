@@ -15,6 +15,15 @@
 
 CARGO ?= cargo
 
+# Use kache when available, while preserving explicit wrappers and keeping a
+# missing cache tool equivalent to a normal uncached Cargo build.
+ifeq ($(origin RUSTC_WRAPPER), undefined)
+KACHE := $(shell command -v kache 2>/dev/null)
+ifneq ($(KACHE),)
+export RUSTC_WRAPPER := $(KACHE)
+endif
+endif
+
 .PHONY: all build test check fmt check_fmt clippy examples clean help
 
 ## all: build the library (default)
