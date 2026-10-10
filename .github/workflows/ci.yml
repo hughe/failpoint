@@ -49,8 +49,13 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
-      - name: Run tests (single-threaded)
-        run: cargo test --verbose -- --test-threads=1
+      - name: Install nextest 0.9.148
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.148
+
+      - name: Run tests
+        run: cargo nextest run
 
       - name: Run doc tests
         run: cargo test --doc --verbose

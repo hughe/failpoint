@@ -14,6 +14,7 @@
 # this file breaks nothing.
 
 CARGO ?= cargo
+NEXTEST_VERSION := 0.9.148
 
 # Use kache when available, while preserving explicit wrappers and keeping a
 # missing cache tool equivalent to a normal uncached Cargo build.
@@ -131,3 +132,11 @@ else
 	$(ACTIONLINT) $(ACTIONLINT_FLAGS) $(ACTIONLINT_FILES)
 endif
 .PHONY: actionlint
+
+## install-nextest: install the pinned test runner when missing or mismatched
+install-nextest:
+	@have=$$($(CARGO) nextest --version 2>/dev/null | sed -n '1s/^cargo-nextest \([^ ]*\).*/\1/p'); \
+	if [ "$$have" != "$(NEXTEST_VERSION)" ]; then \
+	    $(CARGO) install cargo-nextest --version "$(NEXTEST_VERSION)" --locked --force; \
+	fi
+.PHONY: install-nextest
