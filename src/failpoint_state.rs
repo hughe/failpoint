@@ -112,12 +112,12 @@ impl Default for Inner {
 #[cfg(feature = "failpoint_enabled")]
 impl Inner {
     pub fn report_count(&mut self, loc: &Location) {
-        if self.verbosity >= Verbosity::Moderate {
-            if let Some(ref log) = self.logger {
-                let loc_str = loc.format();
-                let msg = format!("Found {loc_str}");
-                log(msg);
-            }
+        if self.verbosity >= Verbosity::Moderate
+            && let Some(ref log) = self.logger
+        {
+            let loc_str = loc.format();
+            let msg = format!("Found {loc_str}");
+            log(msg);
         }
 
         if self.verbosity >= Verbosity::Extreme {
@@ -126,12 +126,12 @@ impl Inner {
     }
 
     pub fn report_trigger(&mut self, loc: &Location, error: &dyn Debug) {
-        if self.verbosity >= Verbosity::Moderate {
-            if let Some(ref log) = self.logger {
-                let loc_str = loc.format();
-                let msg = format!("Triggered {loc_str} injecting Err({error:?})");
-                log(msg);
-            }
+        if self.verbosity >= Verbosity::Moderate
+            && let Some(ref log) = self.logger
+        {
+            let loc_str = loc.format();
+            let msg = format!("Triggered {loc_str} injecting Err({error:?})");
+            log(msg);
         }
         if self.verbosity >= Verbosity::Extreme {
             self.triggered_locs.push(loc.clone());
@@ -139,12 +139,12 @@ impl Inner {
     }
 
     pub fn report_unexpected_failure(&mut self, loc: &Location, error: &dyn Debug) {
-        if self.verbosity >= Verbosity::Moderate {
-            if let Some(ref log) = self.logger {
-                let loc_str = loc.format();
-                let msg = format!("Unexpected error in {loc_str} got Err({error:?})");
-                log(msg);
-            }
+        if self.verbosity >= Verbosity::Moderate
+            && let Some(ref log) = self.logger
+        {
+            let loc_str = loc.format();
+            let msg = format!("Unexpected error in {loc_str} got Err({error:?})");
+            log(msg);
         }
     }
 }
@@ -180,8 +180,7 @@ pub fn get_state() -> &'static State {
 #[doc(hidden)]
 pub fn lock_state<'a>() -> MutexGuard<'a, Inner> {
     let state = get_state();
-    let g = state.mu.lock().unwrap();
-    g
+    state.mu.lock().unwrap()
 }
 
 #[cfg(feature = "failpoint_enabled")]
@@ -423,10 +422,10 @@ pub fn set_logger(_l: Option<Logger>) {}
 #[doc(hidden)]
 pub fn log_if_verbose(level: Verbosity, msg: String) {
     let g = lock_state();
-    if g.verbosity >= level {
-        if let Some(ref log_fn) = g.logger {
-            log_fn(msg);
-        }
+    if g.verbosity >= level
+        && let Some(ref log_fn) = g.logger
+    {
+        log_fn(msg);
     }
 }
 

@@ -56,10 +56,7 @@ test:
 
 ## check: the lint gate — formatting and clippy, both fatal
 #
-# `cargo fmt` reads rustfmt.toml, which pins style_edition = "2024"
-# while Cargo.toml declares edition = "2021". That is deliberate: the
-# source is written in the 2024 import style, and without the pin
-# rustfmt applies the 2021 style and rejects the tree.
+# `cargo fmt` uses the Rust 2024 import style pinned in rustfmt.toml.
 check: check_fmt clippy
 
 ## fmt: reformat the tree in place
